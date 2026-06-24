@@ -211,29 +211,16 @@ function startListeners() {
   });
 }
 
-// ── APPLY APPEARANCE ─────────────────────────────────────────
-function applyAppearance() {
-  if (appearance.accentColor) {
-    document.documentElement.style.setProperty('--red', appearance.accentColor);
-  }
-  if (appearance.siteName) {
-    document.querySelectorAll('.site-name').forEach(el => el.textContent = appearance.siteName);
-  }
-  if (appearance.heroText) {
-    const el = $('general-hero-text');
-    if (el) el.textContent = appearance.heroText;
-  }
-  if (appearance.heroSub) {
-    const el = $('general-hero-sub');
-    if (el) el.textContent = appearance.heroSub;
-  }
+
+
+// ════════════════════════════════════════════════════════════
+//  RENDER FUNCTIONS - using data attributes to avoid quoting issues
+// ════════════════════════════════════════════════════════════
+
+function makeBtn(label, cls, action, id) {
+  return '<button class="' + cls + '" data-action="' + action + '" data-id="' + id + '">' + label + '</button>';
 }
 
-// ════════════════════════════════════════════════════════════
-//  GENERAL PANEL
-// ════════════════════════════════════════════════════════════
-
-// ── PREORDERS ───────────────────────────────────────────────
 function renderPreorders() {
   const grid = $('preorder-grid');
   if (!grid) return;
@@ -243,76 +230,10 @@ function renderPreorders() {
   }
   grid.innerHTML = preorders.map(p => {
     const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:220px;object-fit:cover;">' : '<div class="card-img-placeholder">📦</div>';
-    return '<div class="card preorder-card"><div class="preorder-badge">PRE-ORDER</div>' + img + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description||'') + '</div><button class="btn btn-primary w-full" onclick="openReserveModal('' + p.id + '')">Reserve Now</button></div></div>';
+    return '<div class="card preorder-card"><div class="preorder-badge">PRE-ORDER</div>' + img + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description||'') + '</div>' + makeBtn('Reserve Now', 'btn btn-primary w-full', 'reserve', p.id) + '</div></div>';
   }).join('');
 }
 
-let reservingProductId = null;
-window.openReserveModal = function(id) {
-  reservingProductId = id;
-  const p = preorders.find(x => x.id === id);
-  if (!p) return;
-  $('reserve-product-name').textContent = p.name;
-  $('reserve-product-price').textContent = formatPrice(p.price);
-  $('reserve-form').reset();
-  showModal('reserve-modal');
-};
-
-$('reserve-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const btn = $('reserve-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Reserving...';
-  try {
-    await addDoc(collection(db, 'reservations'), {
-      productId: reservingProductId,
-      productName: preorders.find(x => x.id === reservingProductId)?.name || '',
-      name: $('reserve-name').value.trim(),
-      contact: $('reserve-contact').value.trim(),
-      fbLink: $('reserve-fb').value.trim(),
-      createdAt: serverTimestamp()
-    });
-    hideModal('reserve-modal');
-    toast('Reservation submitted! We\'ll contact you soon.', 'success');
-    $('reserve-form').reset();
-  } catch (err) {
-    toast('Failed to submit. Please try again.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Reserve';
-  }
-});
-
-// Also load reservations separately (not in preorders listener)
-onSnapshot(query(collection(db, 'reservations'), orderBy('createdAt', 'desc')), snap => {
-  reservations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  renderAdminReservations();
-});
-
-// ── GALLERY ─────────────────────────────────────────────────
-function renderGallery() {
-  const grid = $('gallery-grid');
-  if (!grid) return;
-  if (!galleryItems.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><p>No photos yet</p></div>';
-    return;
-  }
-  grid.innerHTML = galleryItems.map(g => `
-    <div class="gallery-item" onclick="openLightbox('${g.imageUrl}')">
-      <img src="${g.imageUrl}" alt="${g.caption || ''}" loading="lazy">
-    </div>
-  `).join('');
-}
-
-window.openLightbox = function(url) {
-  const lb = document.createElement('div');
-  lb.className = 'lightbox';
-  lb.innerHTML = `<img src="${url}" alt="Gallery image">`;
-  lb.addEventListener('click', () => lb.remove());
-  document.body.appendChild(lb);
-};
-
-// ── POSTS ────────────────────────────────────────────────────
 function renderPosts() {
   const grid = $('posts-grid');
   if (!grid) return;
@@ -321,133 +242,176 @@ function renderPosts() {
     return;
   }
   grid.innerHTML = posts.map(p => {
-    const img = p.imageUrl ? '<img class="post-card-img" src="' + p.imageUrl + '" alt="' + p.title + '" loading="lazy">' : '';
-    const excerpt = (p.content||'').substring(0,120) + (p.content && p.content.length > 120 ? '...' : '');
-    return '<div class="post-card" onclick="openPostModal('' + p.id + '')">' + img + '<div class="post-card-body"><div class="post-card-date">' + formatDate(p.createdAt) + '</div><div class="post-card-title">' + p.title + '</div><div class="post-card-excerpt">' + excerpt + '</div></div></div>';
+    const img = p.imageUrl ? '<img class="post-card-img" src="' + p.imageUrl + '" alt="" loading="lazy">' : '';
+    const excerpt = (p.content||'').substring(0,120) + ((p.content||'').length > 120 ? '...' : '');
+    return '<div class="post-card" data-action="viewpost" data-id="' + p.id + '">' + img + '<div class="post-card-body"><div class="post-card-date">' + formatDate(p.createdAt) + '</div><div class="post-card-title">' + p.title + '</div><div class="post-card-excerpt">' + excerpt + '</div></div></div>';
   }).join('');
 }
 
-window.openPostModal = function(id) {
-  const p = posts.find(x => x.id === id);
-  if (!p) return;
-  $('post-modal-title').textContent = p.title;
-  $('post-modal-date').textContent = formatDate(p.createdAt);
-  $('post-modal-img').innerHTML = p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.title}">` : '';
-  $('post-modal-content').textContent = p.content || '';
-  showModal('post-modal');
-};
-
-// ════════════════════════════════════════════════════════════
-//  ORDER PANEL
-// ════════════════════════════════════════════════════════════
 function renderOrderProducts() {
   const grid = $('order-products-grid');
   if (!grid) return;
-  const inhand = products;
-  if (!inhand.length) {
+  if (!products.length) {
     grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>No products available</p></div>';
     return;
   }
-  grid.innerHTML = inhand.map(p => {
-    const inCart = cart[p.id]?.qty || 0;
+  grid.innerHTML = products.map(p => {
+    const inCart = cart[p.id] ? cart[p.id].qty : 0;
     const outOfStock = p.stock <= 0;
-    const imgHtml = p.imageUrl ? '<img style="width:100%;height:220px;object-fit:cover;" src="' + p.imageUrl + '" alt="' + p.name + '">' : '<div class="card-img-placeholder">🏷️</div>';
+    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:220px;object-fit:cover;">' : '<div class="card-img-placeholder">🏷️</div>';
     const sLabel = stockLabel(p.stock);
     const stockHtml = sLabel ? '<div style="margin-bottom:0.8rem;">' + sLabel + '</div>' : '';
     let actionHtml = '';
     if (outOfStock) {
       actionHtml = '<button class="btn btn-outline w-full" disabled>Out of Stock</button>';
     } else if (inCart > 0) {
-      actionHtml = '<div class="qty-control" style="justify-content:center;gap:1rem;"><button class="qty-btn" onclick="changeCartQty('' + p.id + '',-1)">−</button><span class="qty-val">' + inCart + '</span><button class="qty-btn" onclick="changeCartQty('' + p.id + '',1)">+</button></div>';
+      actionHtml = '<div class="qty-control" style="justify-content:center;gap:1rem;">' + makeBtn('−', 'qty-btn', 'qty-minus', p.id) + '<span class="qty-val">' + inCart + '</span>' + makeBtn('+', 'qty-btn', 'qty-plus', p.id) + '</div>';
     } else {
-      actionHtml = '<button class="btn btn-primary w-full" onclick="addToCart('' + p.id + '')">Add to Cart</button>';
+      actionHtml = makeBtn('Add to Cart', 'btn btn-primary w-full', 'addcart', p.id);
     }
-    return '<div class="card">' + imgHtml + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description || '') + '</div>' + stockHtml + actionHtml + '</div></div>';
+    return '<div class="card">' + img + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description||'') + '</div>' + stockHtml + actionHtml + '</div></div>';
   }).join('');
 }
 
-window.addToCart = function(id) {
-  const p = products.find(x => x.id === id);
-  if (!p) return;
-  if (!cart[id]) cart[id] = { product: p, qty: 0 };
-  if (cart[id].qty >= p.stock) { toast('Max stock reached', 'error'); return; }
-  cart[id].qty++;
-  updateCart();
-};
-
-window.changeCartQty = function(id, delta) {
-  if (!cart[id]) return;
-  cart[id].qty += delta;
-  if (cart[id].qty <= 0) delete cart[id];
-  else if (cart[id].qty > cart[id].product.stock) { cart[id].qty = cart[id].product.stock; toast('Max stock reached', 'error'); }
-  updateCart();
-};
-
-function updateCart() {
-  renderOrderProducts();
-  renderCartSidebar();
-}
-
-function getCartSubtotal() {
-  return Object.values(cart).reduce((sum, item) => sum + item.product.price * item.qty, 0);
-}
-
-function getDiscount() {
-  if (!appliedVoucher) return 0;
-  const sub = getCartSubtotal();
-  if (appliedVoucher.type === 'fixed') return Math.min(appliedVoucher.value, sub);
-  if (appliedVoucher.type === 'percent') return sub * (appliedVoucher.value / 100);
-  return 0;
-}
-
-function renderCartSidebar() {
-  const sidebar = $('cart-sidebar');
-  const items = Object.values(cart);
-  const subtotal = getCartSubtotal();
-  const discount = getDiscount();
-  const total = subtotal - discount;
-  const count = items.reduce((s, i) => s + i.qty, 0);
-
-  $('cart-item-count').textContent = count;
-
-  if (!items.length) {
-    sidebar.innerHTML = `
-      <div class="empty-state" style="padding:2rem 1rem">
-        <div class="empty-icon">🛒</div>
-        <p>Cart is empty</p>
-      </div>`;
+function renderAdminProducts() {
+  const grid = $('admin-products-grid');
+  if (!grid) return;
+  if (!products.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No products yet</p></div>';
     return;
   }
-
-  sidebar.innerHTML = `
-    <h3 style="font-family:var(--font-display);font-size:1.2rem;font-weight:900;text-transform:uppercase;margin-bottom:1rem;letter-spacing:.05em">
-      Your Cart <span style="color:var(--red)">(${count})</span>
-    </h3>
-    <div id="cart-items-list">
-      ${items.map(item => `
-        <div class="cart-item">
-          ${item.product.imageUrl ? `<img class="cart-item-img" src="${item.product.imageUrl}" alt="${item.product.name}">` : '<div class="cart-item-img" style="background:var(--dark3);display:flex;align-items:center;justify-content:center;">🏷️</div>'}
-          <div class="cart-item-info">
-            <div class="cart-item-name">${item.product.name}</div>
-            <div class="cart-item-price">${formatPrice(item.product.price)} × ${item.qty}</div>
-          </div>
-          <div class="qty-control">
-            <button class="qty-btn" onclick="changeCartQty('${item.product.id}',-1)">−</button>
-            <span class="qty-val">${item.qty}</span>
-            <button class="qty-btn" onclick="changeCartQty('${item.product.id}',1)">+</button>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    <div style="margin-top:1rem;">
-      <div class="cart-total-row"><span>Subtotal</span><span>${formatPrice(subtotal)}</span></div>
-      ${discount > 0 ? `<div class="cart-total-row" style="color:var(--green)"><span>Discount</span><span>−${formatPrice(discount)}</span></div>` : ''}
-      <div class="cart-total-row grand"><span>Total</span><span class="amount">${formatPrice(total)}</span></div>
-    </div>
-    <div class="shipping-note">⚠ Total does not include shipping fee. Final amount with SF and payment confirmation will be discussed via DM on our Facebook page.</div>
-    ${items.length > 0 ? `<button class="btn btn-primary w-full mt-2" onclick="startCheckout()">Proceed to Checkout →</button>` : ''}
-  `;
+  grid.innerHTML = products.map(p => {
+    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:160px;object-fit:cover;">' : '<div class="admin-product-card-img-placeholder">🏷️</div>';
+    return '<div class="admin-product-card">' + img + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div><div style="margin-top:0.3rem;">' + stockLabel(p.stock) + '</div></div><div class="admin-product-card-footer">' + makeBtn('✏️ Edit', 'btn btn-ghost btn-sm', 'editprod', p.id) + makeBtn('🗑 Delete', 'btn btn-danger btn-sm', 'delprod', p.id) + '</div></div>';
+  }).join('');
 }
+
+function renderAdminPreorders() {
+  const grid = $('admin-preorders-grid');
+  if (!grid) return;
+  if (!preorders.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No pre-orders yet</p></div>';
+    return;
+  }
+  grid.innerHTML = preorders.map(p => {
+    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:160px;object-fit:cover;">' : '<div class="admin-product-card-img-placeholder">📦</div>';
+    return '<div class="admin-product-card">' + img + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div></div><div class="admin-product-card-footer">' + makeBtn('✏️ Edit', 'btn btn-ghost btn-sm', 'editpre', p.id) + makeBtn('🗑 Delete', 'btn btn-danger btn-sm', 'delpre', p.id) + '</div></div>';
+  }).join('');
+}
+
+function renderAdminOrders() {
+  const list = $('admin-orders-list');
+  if (!list) return;
+  const active = orders.filter(o => o.status !== 'complete');
+  if (!active.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No pending orders</p></div>';
+    return;
+  }
+  list.innerHTML = active.map(o => {
+    const itemsList = o.items ? o.items.map(i => i.name + ' ×' + i.qty).join(', ') : '';
+    const fbLink = o.fbLink ? ' | <a href="' + o.fbLink + '" target="_blank" style="color:var(--accent)">FB</a>' : '';
+    const noteHtml = o.note ? '<div style="font-size:0.82rem;color:var(--light);margin-top:.3rem">Note: ' + o.note + '</div>' : '';
+    return '<div class="order-card"><div class="order-card-header"><div><div class="order-id">' + o.orderId + '</div><div class="order-name">' + o.profileName + ' / ' + o.fullName + '</div></div><div class="flex gap-1">' + makeBtn('✓ Complete', 'btn btn-success btn-sm', 'completeorder', o.id) + makeBtn('🗑', 'btn btn-danger btn-sm', 'delorder', o.id) + '</div></div><div class="order-items-list">' + itemsList + '</div><div class="flex justify-between items-center"><span class="order-total">' + formatPrice(o.total) + '</span><span style="font-size:0.8rem;color:var(--muted)">' + (o.shipping||'') + ' · ' + (o.payment||'') + ' · ' + formatDate(o.createdAt) + '</span></div><div style="font-size:0.82rem;color:var(--muted);margin-top:0.4rem">' + (o.address||'') + ' | ' + (o.contact||'') + fbLink + '</div>' + noteHtml + '</div>';
+  }).join('');
+}
+
+function renderAdminReservations() {
+  const list = $('admin-reservations-list');
+  if (!list) return;
+  if (!reservations.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No reservations yet</p></div>';
+    return;
+  }
+  list.innerHTML = reservations.map(r => {
+    const fbHtml = r.fbLink ? ' · <a href="' + r.fbLink + '" target="_blank" style="color:var(--accent)">FB Profile</a>' : '';
+    return '<div class="reservation-card"><div class="reservation-info"><div class="name">' + r.name + '</div><div class="product">' + r.productName + '</div><div class="contact">' + r.contact + fbHtml + '</div><div style="font-size:0.78rem;color:var(--muted)">' + formatDate(r.createdAt) + '</div></div>' + makeBtn('🗑', 'btn btn-danger btn-sm', 'delres', r.id) + '</div>';
+  }).join('');
+}
+
+function renderAdminVouchers() {
+  const list = $('admin-vouchers-list');
+  if (!list) return;
+  if (!vouchers.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎟️</div><p>No vouchers yet</p></div>';
+    return;
+  }
+  list.innerHTML = vouchers.map(v => {
+    const disc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
+    const toggleLabel = v.active !== false ? 'Disable' : 'Enable';
+    const toggleAction = v.active !== false ? 'disablevoucher' : 'enablevoucher';
+    return '<div class="voucher-card"><div><div class="voucher-code">' + v.code + '</div><div style="font-size:0.8rem;color:var(--muted)">' + (v.type === 'fixed' ? 'Fixed amount' : 'Percentage') + '</div></div><div class="voucher-discount">' + disc + '</div><div class="flex gap-1">' + makeBtn(toggleLabel, 'btn btn-ghost btn-sm', toggleAction, v.id) + makeBtn('🗑', 'btn btn-danger btn-sm', 'delvoucher', v.id) + '</div></div>';
+  }).join('');
+}
+
+function renderAdminGallery() {
+  const grid = $('admin-gallery-grid');
+  if (!grid) return;
+  if (!galleryItems.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><p>No photos yet</p></div>';
+    return;
+  }
+  grid.innerHTML = galleryItems.map(g => {
+    const cap = g.caption ? '<div style="font-size:0.78rem;color:var(--muted);padding:0.3rem 0;">' + g.caption + '</div>' : '';
+    return '<div style="position:relative;"><div class="gallery-item" style="cursor:default;"><img src="' + g.imageUrl + '" alt=""></div>' + cap + makeBtn('🗑', 'btn btn-danger btn-sm', 'delgallery', g.id) + '</div>';
+  }).join('');
+}
+
+function renderAdminPosts() {
+  const list = $('admin-posts-list');
+  if (!list) return;
+  if (!posts.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>No posts yet</p></div>';
+    return;
+  }
+  list.innerHTML = posts.map(p => {
+    return '<div class="order-card"><div class="order-card-header"><div><div style="font-size:1rem;font-weight:800;">' + p.title + '</div><div style="font-size:0.78rem;color:var(--muted)">' + formatDate(p.createdAt) + '</div></div><div class="flex gap-1">' + makeBtn('✏️ Edit', 'btn btn-ghost btn-sm', 'editpost', p.id) + makeBtn('🗑', 'btn btn-danger btn-sm', 'delpost', p.id) + '</div></div><div style="font-size:0.85rem;color:var(--muted)">' + (p.content||'').substring(0,100) + '...</div></div>';
+  }).join('');
+}
+
+function renderAdminQRs() {
+  const methods = ['gcash','maribank','maya','chinabank'];
+  const labels = { gcash:'GCash', maribank:'MariBank', maya:'Maya', chinabank:'ChinaBank' };
+  const grid = $('admin-qr-grid');
+  if (!grid) return;
+  grid.innerHTML = methods.map(m => {
+    const qrImg = qrCodes[m] ? '<img src="' + qrCodes[m] + '" alt="" style="max-width:120px;margin:0 auto 0.8rem;display:block;">' : '<div class="qr-placeholder">📷</div>';
+    return '<div class="qr-admin-card"><div class="qr-name">' + labels[m] + '</div>' + qrImg + '<label class="btn btn-ghost btn-sm w-full" style="cursor:pointer;">Upload QR<input type="file" accept="image/*" style="display:none" data-method="' + m + '" class="qr-file-input"></label></div>';
+  }).join('');
+  // attach file input listeners
+  document.querySelectorAll('.qr-file-input').forEach(inp => {
+    inp.addEventListener('change', function() { uploadQR(this.dataset.method, this); });
+  });
+}
+
+// ── DELEGATED EVENT HANDLER ──────────────────────────────────
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  switch(action) {
+    case 'reserve': openReserveModal(id); break;
+    case 'viewpost': openPostModal(id); break;
+    case 'addcart': addToCart(id); break;
+    case 'qty-plus': changeCartQty(id, 1); break;
+    case 'qty-minus': changeCartQty(id, -1); break;
+    case 'editprod': editProduct(id); break;
+    case 'delprod': deleteProduct(id); break;
+    case 'editpre': editPreorder(id); break;
+    case 'delpre': deletePreorder(id); break;
+    case 'completeorder': markOrderComplete(id); break;
+    case 'delorder': deleteOrder(id); break;
+    case 'delres': deleteReservation(id); break;
+    case 'disablevoucher': toggleVoucher(id, 'true'); break;
+    case 'enablevoucher': toggleVoucher(id, 'false'); break;
+    case 'delvoucher': deleteVoucher(id); break;
+    case 'delgallery': deleteGalleryItem(id); break;
+    case 'editpost': editPost(id); break;
+    case 'delpost': deletePost(id); break;
+  }
+});
+
+
 
 // ── CHECKOUT ─────────────────────────────────────────────────
 window.startCheckout = function() {
