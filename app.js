@@ -298,30 +298,35 @@ function renderOrderProducts() {
   var grid = g('order-products-grid');
   if (!grid) return;
   if (!products.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>No products available</p></div>'; return; }
-  var html = '';
+  var html = '<div class="product-list">';
   products.forEach(function(p) {
     var inCart = cart[p.id] ? cart[p.id].qty : 0;
     var outOfStock = p.stock <= 0;
-    var img = imgOrPlaceholder(p.imageUrl, 'card-img', '100%', '220px', '🏷️');
     var sLabel = stockLabel(p.stock);
-    html += '<div class="card">' + img + '<div class="card-body">';
-    html += '<div class="card-title">' + p.name + '</div>';
-    html += '<div class="card-price">' + formatPrice(p.price) + '</div>';
-    html += '<div class="card-desc">' + (p.description||'') + '</div>';
-    if (sLabel) html += '<div style="margin-bottom:.8rem">' + sLabel + '</div>';
+    var img = p.imageUrl ? '<img src="' + p.imageUrl + '" class="product-list-img">' : '<div class="product-list-img-placeholder">🏷️</div>';
+    html += '<div class="product-list-item' + (outOfStock ? ' out-of-stock' : '') + '">';
+    html += img;
+    html += '<div class="product-list-info">';
+    html += '<div class="product-list-name">' + p.name + '</div>';
+    if (p.description) html += '<div class="product-list-desc">' + p.description + '</div>';
+    if (sLabel) html += sLabel;
+    html += '</div>';
+    html += '<div class="product-list-right">';
+    html += '<div class="product-list-price">' + formatPrice(p.price) + '</div>';
     if (outOfStock) {
-      html += '<button class="btn btn-outline w-full" disabled>Out of Stock</button>';
+      html += '<span class="stock-out" style="font-size:.75rem;">OUT OF STOCK</span>';
     } else if (inCart > 0) {
-      html += '<div class="qty-control" style="justify-content:center;gap:1rem;">';
+      html += '<div class="qty-control">';
       html += '<button class="qty-btn" data-action="qty-minus" data-id="' + p.id + '">−</button>';
       html += '<span class="qty-val">' + inCart + '</span>';
       html += '<button class="qty-btn" data-action="qty-plus" data-id="' + p.id + '">+</button>';
       html += '</div>';
     } else {
-      html += '<button class="btn btn-primary w-full" data-action="addcart" data-id="' + p.id + '">Add to Cart</button>';
+      html += '<button class="btn btn-primary btn-sm" data-action="addcart" data-id="' + p.id + '">+ Add</button>';
     }
     html += '</div></div>';
   });
+  html += '</div>';
   grid.innerHTML = html;
 }
 
@@ -496,17 +501,35 @@ g('checkout-next-2').addEventListener('click', function() {
 });
 g('checkout-back-3').addEventListener('click', function() { checkoutStep = 2; renderCheckoutSteps(); });
 
-g('apply-voucher-btn').addEventListener('click', function() {
+g('apply-voucher-btn').addEventListener('click', async function() {
   var code = g('voucher-input').value.trim().toUpperCase();
-  var v = vouchers.find(function(x) { return x.code === code && x.active !== false; });
   var fb = g('voucher-feedback');
-  if (!v) { fb.innerHTML = '<span class="voucher-error">Invalid voucher code.</span>'; appliedVoucher = null; }
-  else {
-    appliedVoucher = v;
-    var desc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
-    fb.innerHTML = '<span class="voucher-success">✓ Voucher applied — ' + desc + '!</span>';
-    toast('Voucher applied!','success');
+  var v = vouchers.find(function(x) { return x.code === code && x.active !== false; });
+  if (!v) { fb.innerHTML = '<span class="voucher-error">Invalid voucher code.</span>'; appliedVoucher = null; renderCartSidebar(); return; }
+
+  // Check total usage limit
+  if (v.maxUses && v.usedCount && v.usedCount >= v.maxUses) {
+    fb.innerHTML = '<span class="voucher-error">This voucher has reached its usage limit.</span>';
+    appliedVoucher = null; renderCartSidebar(); return;
   }
+
+  // Check per-customer limit using contact field if filled, else use session
+  var contact = g('checkout-form') ? (g('checkout-form').elements['contact'] ? g('checkout-form').elements['contact'].value.trim() : '') : '';
+  var sessionKey = 'voucher_used_' + code;
+  if (v.perCustomer) {
+    var alreadyUsed = sessionStorage.getItem(sessionKey);
+    if (alreadyUsed) {
+      fb.innerHTML = '<span class="voucher-error">You have already used this voucher.</span>';
+      appliedVoucher = null; renderCartSidebar(); return;
+    }
+  }
+
+  appliedVoucher = v;
+  var desc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
+  var limitInfo = '';
+  if (v.maxUses) limitInfo = ' (' + (v.maxUses - (v.usedCount||0)) + ' uses left)';
+  fb.innerHTML = '<span class="voucher-success">✓ Voucher applied — ' + desc + limitInfo + '!</span>';
+  toast('Voucher applied!', 'success');
   renderCartSidebar();
 });
 
@@ -542,6 +565,16 @@ g('place-order-btn').addEventListener('click', async function() {
       createdAt: serverTimestamp()
     };
     await addDoc(collection(db,'orders'), orderData);
+
+    // Track voucher usage
+    if (appliedVoucher) {
+      var vRef = doc(db,'vouchers', appliedVoucher.id);
+      var newCount = (appliedVoucher.usedCount || 0) + 1;
+      await updateDoc(vRef, {usedCount: newCount});
+      if (appliedVoucher.perCustomer) {
+        sessionStorage.setItem('voucher_used_' + appliedVoucher.code, '1');
+      }
+    }
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       var prodRef = doc(db,'products',item.productId);
@@ -698,8 +731,11 @@ function renderAdminVouchers() {
   vouchers.forEach(function(v) {
     var disc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
     var isActive = v.active !== false;
+    var usageInfo = '';
+    if (v.maxUses) usageInfo += '<span style="color:var(--muted);font-size:.78rem;">Used: ' + (v.usedCount||0) + ' / ' + v.maxUses + '</span>';
+    if (v.perCustomer) usageInfo += '<span style="color:var(--muted);font-size:.78rem;margin-left:.5rem;">1x per customer</span>';
     html += '<div class="voucher-card"><div><div class="voucher-code">' + v.code + '</div>';
-    html += '<div style="font-size:.8rem;color:var(--muted)">' + (v.type === 'fixed' ? 'Fixed amount' : 'Percentage') + '</div></div>';
+    html += '<div style="font-size:.8rem;color:var(--muted)">' + (v.type === 'fixed' ? 'Fixed' : 'Percentage') + (usageInfo ? ' · ' : '') + usageInfo + '</div></div>';
     html += '<div class="voucher-discount">' + disc + '</div><div class="flex gap-1">';
     html += '<button class="btn btn-ghost btn-sm" data-action="togglevoucher" data-id="' + v.id + '" data-active="' + isActive + '">' + (isActive ? 'Disable' : 'Enable') + '</button>';
     html += '<button class="btn btn-danger btn-sm" data-action="delvoucher" data-id="' + v.id + '">🗑</button></div></div>';
@@ -939,9 +975,14 @@ g('voucher-add-form').addEventListener('submit', async function(e) {
   var code = g('voucher-code-input').value.trim().toUpperCase();
   var type = g('voucher-type-select').value;
   var value = parseFloat(g('voucher-value-input').value);
+  var maxUsesVal = g('voucher-max-uses').value;
+  var maxUses = maxUsesVal ? parseInt(maxUsesVal) : null;
+  var perCustomer = g('voucher-per-customer').checked;
   if (!code || !value) { toast('Fill all fields.','error'); return; }
   if (vouchers.find(function(v) { return v.code === code; })) { toast('Code already exists.','error'); return; }
-  await addDoc(collection(db,'vouchers'), {code:code, type:type, value:value, active:true});
+  var vData = {code:code, type:type, value:value, active:true, usedCount:0, perCustomer:perCustomer};
+  if (maxUses) vData.maxUses = maxUses;
+  await addDoc(collection(db,'vouchers'), vData);
   g('voucher-add-form').reset();
   toast('Voucher added!','success');
 });

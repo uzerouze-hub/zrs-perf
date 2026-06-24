@@ -258,23 +258,33 @@
           <div class="admin-section-title">🎟️ Vouchers</div>
           <div style="background:var(--dark2);border:1px solid var(--gray);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem;">
             <h4 style="font-family:var(--font-display);font-size:1rem;font-weight:700;text-transform:uppercase;margin-bottom:1rem;">Add Voucher</h4>
-            <form id="voucher-add-form" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
-              <div class="form-group" style="flex:1;min-width:120px;margin:0;">
+            <form id="voucher-add-form" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem;align-items:flex-end;">
+              <div class="form-group" style="margin:0;">
                 <label class="form-label">Code</label>
                 <input type="text" id="voucher-code-input" class="form-input" placeholder="e.g. RACE10" required>
               </div>
-              <div class="form-group" style="flex:1;min-width:120px;margin:0;">
+              <div class="form-group" style="margin:0;">
                 <label class="form-label">Type</label>
                 <select id="voucher-type-select" class="form-select">
                   <option value="fixed">Fixed (₱)</option>
                   <option value="percent">Percentage (%)</option>
                 </select>
               </div>
-              <div class="form-group" style="flex:1;min-width:100px;margin:0;">
+              <div class="form-group" style="margin:0;">
                 <label class="form-label">Value</label>
                 <input type="number" id="voucher-value-input" class="form-input" placeholder="e.g. 100" min="1" required>
               </div>
-              <button type="submit" class="btn btn-primary">Add Voucher</button>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Max Uses <span style="color:var(--muted);font-size:.75rem;">(optional)</span></label>
+                <input type="number" id="voucher-max-uses" class="form-input" placeholder="e.g. 50" min="1">
+              </div>
+              <div class="form-group" style="margin:0;display:flex;align-items:center;gap:.5rem;padding-top:1.5rem;">
+                <input type="checkbox" id="voucher-per-customer" style="width:16px;height:16px;accent-color:var(--accent);">
+                <label for="voucher-per-customer" class="form-label" style="margin:0;text-transform:none;font-size:.85rem;cursor:pointer;">1x per customer</label>
+              </div>
+              <div style="padding-top:1.5rem;">
+                <button type="submit" class="btn btn-primary w-full">Add Voucher</button>
+              </div>
             </form>
           </div>
           <div id="admin-vouchers-list"></div>
