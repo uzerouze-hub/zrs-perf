@@ -244,7 +244,7 @@ function renderPreorders() {
   grid.innerHTML = preorders.map(p => `
     <div class="card preorder-card">
       <div class="preorder-badge">PRE-ORDER</div>
-      ${p.imageUrl ? `<img class="card-img" src="${p.imageUrl}" alt="${p.name}" loading="lazy">` : '<div class="card-img-placeholder">📦</div>'}
+      ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}" style="width:100%;height:220px;object-fit:cover;">` : '<div class="card-img-placeholder">📦</div>'}
       <div class="card-body">
         <div class="card-title">${p.name}</div>
         <div class="card-price">${formatPrice(p.price)}</div>
@@ -366,7 +366,7 @@ function renderOrderProducts() {
     const outOfStock = p.stock <= 0;
     return `
     <div class="card">
-      ${p.imageUrl ? `<img class="card-img" src="${p.imageUrl}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\"card-img-placeholder\">🏷️</div>'">` : '<div class="card-img-placeholder">🏷️</div>'}
+      ${p.imageUrl ? `<img class="card-img" src="${p.imageUrl}" alt="${p.name}" style="width:100%;height:220px;object-fit:cover;">` : '<div class="card-img-placeholder">🏷️</div>'}
       <div class="card-body">
         <div class="card-title">${p.name}</div>
         <div class="card-price">${formatPrice(p.price)}</div>
@@ -749,7 +749,7 @@ function renderAdminProducts() {
   }
   grid.innerHTML = products.map(p => `
     <div class="admin-product-card">
-      ${p.imageUrl ? `<img class="admin-product-card-img" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">` : '<div class="admin-product-card-img-placeholder">🏷️</div>'}
+      ${p.imageUrl ? `<img class="admin-product-card-img" src="${p.imageUrl}" alt="${p.name}" style="width:100%;height:160px;object-fit:cover;">` : '<div class="admin-product-card-img-placeholder">🏷️</div>'}
       <div class="admin-product-card-body">
         <div class="admin-product-card-name">${p.name}</div>
         <div style="font-family:var(--font-mono);color:var(--red);font-size:0.95rem;">${formatPrice(p.price)}</div>
