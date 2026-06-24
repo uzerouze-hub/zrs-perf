@@ -79,14 +79,14 @@ async function uploadToImgBB(file) {
   fd.append('image', file);
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: fd });
   const data = await res.json();
-  if (data.success) return data.data.url;
+  if (data.success) return data.data.display_url || data.data.url;
   throw new Error('Image upload failed');
 }
 
 function stockLabel(stock) {
   if (stock <= 0) return '<span class="stock-out">OUT OF STOCK</span>';
-  if (stock <= 2) return `<span class="stock-low">⚠ LOW STOCK (${stock})</span>`;
-  return `<span class="stock-ok">${stock} in stock</span>`;
+  if (stock <= 2) return '<span class="stock-low">⚠ LOW STOCK</span>';
+  return '';
 }
 
 // ── PANEL NAVIGATION ─────────────────────────────────────────
@@ -348,7 +348,7 @@ window.openPostModal = function(id) {
 function renderOrderProducts() {
   const grid = $('order-products-grid');
   if (!grid) return;
-  const inhand = products.filter(p => p.stock > 0 || p.stock === 0);
+  const inhand = products;
   if (!inhand.length) {
     grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>No products available</p></div>';
     return;
@@ -358,12 +358,12 @@ function renderOrderProducts() {
     const outOfStock = p.stock <= 0;
     return `
     <div class="card">
-      ${p.imageUrl ? `<img class="card-img" src="${p.imageUrl}" alt="${p.name}" loading="lazy">` : '<div class="card-img-placeholder">🏷️</div>'}
+      ${p.imageUrl ? `<img class="card-img" src="${p.imageUrl}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\"card-img-placeholder\">🏷️</div>'">` : '<div class="card-img-placeholder">🏷️</div>'}
       <div class="card-body">
         <div class="card-title">${p.name}</div>
         <div class="card-price">${formatPrice(p.price)}</div>
         <div class="card-desc">${p.description || ''}</div>
-        <div style="margin-bottom:0.8rem;">${stockLabel(p.stock)}</div>
+        ${stockLabel(p.stock) ? `<div style="margin-bottom:0.8rem;">${stockLabel(p.stock)}</div>` : ""}
         ${outOfStock
           ? '<button class="btn btn-outline w-full" disabled>Out of Stock</button>'
           : inCart > 0
@@ -735,7 +735,7 @@ function renderAdminProducts() {
   }
   grid.innerHTML = products.map(p => `
     <div class="admin-product-card">
-      ${p.imageUrl ? `<img class="admin-product-card-img" src="${p.imageUrl}" alt="${p.name}">` : '<div class="admin-product-card-img-placeholder">🏷️</div>'}
+      ${p.imageUrl ? `<img class="admin-product-card-img" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">` : '<div class="admin-product-card-img-placeholder">🏷️</div>'}
       <div class="admin-product-card-body">
         <div class="admin-product-card-name">${p.name}</div>
         <div style="font-family:var(--font-mono);color:var(--red);font-size:0.95rem;">${formatPrice(p.price)}</div>
@@ -784,14 +784,18 @@ $('product-form').addEventListener('submit', async e => {
   try {
     const imgFile = $('product-img-file').files[0];
     let imageUrl = editingProductId ? products.find(x => x.id === editingProductId)?.imageUrl || '' : '';
-    if (imgFile) imageUrl = await uploadToImgBB(imgFile);
+    if (imgFile) {
+      toast('Uploading image...', 'info');
+      imageUrl = await uploadToImgBB(imgFile);
+      console.log('Uploaded image URL:', imageUrl);
+    }
 
     const data = {
       name: $('product-name').value.trim(),
       price: parseFloat($('product-price').value),
       stock: parseInt($('product-stock').value),
       description: $('product-desc').value.trim(),
-      imageUrl,
+      imageUrl: imageUrl || '',
     };
 
     if (editingProductId) {
