@@ -612,30 +612,65 @@ function renderAdminPreorders() {
   grid.innerHTML = html;
 }
 
+function orderCardHtml(o, type) {
+  var itemsList = o.items ? o.items.map(function(i) { return i.name + ' ×' + i.qty; }).join(', ') : '';
+  var fbHtml = o.fbLink ? ' | <a href="' + o.fbLink + '" target="_blank" style="color:var(--accent)">FB</a>' : '';
+  var noteHtml = o.note ? '<div style="font-size:.82rem;color:var(--light);margin-top:.3rem">Note: ' + o.note + '</div>' : '';
+  var actions = '';
+  if (type === 'pending') {
+    actions += '<button class="btn btn-success btn-sm" data-action="completeorder" data-id="' + o.id + '">✓ Complete</button>';
+    actions += '<button class="btn btn-danger btn-sm" data-action="removeorder" data-id="' + o.id + '">🗑 Remove</button>';
+  } else if (type === 'complete') {
+    actions += '<button class="btn btn-danger btn-sm" data-action="removeorder" data-id="' + o.id + '">🗑 Remove</button>';
+  } else if (type === 'removed') {
+    actions += '<button class="btn btn-ghost btn-sm" data-action="restoreorder" data-id="' + o.id + '">↩ Restore</button>';
+    actions += '<button class="btn btn-danger btn-sm" data-action="permdelorder" data-id="' + o.id + '">✕ Delete</button>';
+  }
+  var statusBadge = type === 'complete' ? '<span class="badge badge-green" style="margin-left:.5rem">Completed</span>' : type === 'removed' ? '<span class="badge badge-gray" style="margin-left:.5rem">Removed</span>' : '';
+  var html = '<div class="order-card">';
+  html += '<div class="order-card-header"><div>';
+  html += '<div class="order-id">' + o.orderId + statusBadge + '</div>';
+  html += '<div class="order-name">' + o.profileName + ' / ' + o.fullName + '</div></div>';
+  html += '<div class="flex gap-1">' + actions + '</div></div>';
+  html += '<div class="order-items-list">' + itemsList + '</div>';
+  html += '<div class="flex justify-between items-center"><span class="order-total">' + formatPrice(o.total) + '</span>';
+  html += '<span style="font-size:.8rem;color:var(--muted)">' + (o.shipping||'') + ' · ' + (o.payment||'') + ' · ' + formatDate(o.createdAt) + '</span></div>';
+  html += '<div style="font-size:.82rem;color:var(--muted);margin-top:.4rem">' + (o.address||'') + ' | ' + (o.contact||'') + fbHtml + '</div>';
+  html += noteHtml + '</div>';
+  return html;
+}
+
+var activeOrderTab = 'pending';
+
 function renderAdminOrders() {
-  var list = g('admin-orders-list');
-  if (!list) return;
-  var active = orders.filter(function(o) { return o.status !== 'complete'; });
-  if (!active.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No pending orders</p></div>'; return; }
-  var html = '';
-  active.forEach(function(o) {
-    var itemsList = o.items ? o.items.map(function(i) { return i.name + ' ×' + i.qty; }).join(', ') : '';
-    var fbHtml = o.fbLink ? ' | <a href="' + o.fbLink + '" target="_blank" style="color:var(--accent)">FB</a>' : '';
-    var noteHtml = o.note ? '<div style="font-size:.82rem;color:var(--light);margin-top:.3rem">Note: ' + o.note + '</div>' : '';
-    html += '<div class="order-card"><div class="order-card-header"><div>';
-    html += '<div class="order-id">' + o.orderId + '</div>';
-    html += '<div class="order-name">' + o.profileName + ' / ' + o.fullName + '</div></div>';
-    html += '<div class="flex gap-1">';
-    html += '<button class="btn btn-success btn-sm" data-action="completeorder" data-id="' + o.id + '">✓ Complete</button>';
-    html += '<button class="btn btn-danger btn-sm" data-action="delorder" data-id="' + o.id + '">🗑</button>';
-    html += '</div></div>';
-    html += '<div class="order-items-list">' + itemsList + '</div>';
-    html += '<div class="flex justify-between items-center"><span class="order-total">' + formatPrice(o.total) + '</span>';
-    html += '<span style="font-size:.8rem;color:var(--muted)">' + (o.shipping||'') + ' · ' + (o.payment||'') + ' · ' + formatDate(o.createdAt) + '</span></div>';
-    html += '<div style="font-size:.82rem;color:var(--muted);margin-top:.4rem">' + (o.address||'') + ' | ' + (o.contact||'') + fbHtml + '</div>';
-    html += noteHtml + '</div>';
+  var wrap = g('admin-orders-list');
+  if (!wrap) return;
+
+  var pending = orders.filter(function(o) { return o.status === 'pending'; });
+  var completed = orders.filter(function(o) { return o.status === 'complete'; });
+  var removed = orders.filter(function(o) { return o.status === 'removed'; });
+
+  var tabHtml = '<div style="display:flex;gap:0;margin-bottom:1.5rem;border-bottom:1px solid var(--gray);">';
+  var tabs = [{key:'pending',label:'Pending',count:pending.length},{key:'complete',label:'Completed',count:completed.length},{key:'removed',label:'Removed',count:removed.length}];
+  tabs.forEach(function(t) {
+    var active = activeOrderTab === t.key ? 'border-bottom:3px solid var(--accent);color:var(--white);' : 'border-bottom:3px solid transparent;color:var(--muted);';
+    tabHtml += '<button data-action="ordertab" data-tab="' + t.key + '" style="' + active + 'padding:.8rem 1.2rem;font-size:.88rem;font-weight:700;text-transform:uppercase;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;">' + t.label + ' (' + t.count + ')</button>';
   });
-  list.innerHTML = html;
+  tabHtml += '</div>';
+
+  var list = '';
+  if (activeOrderTab === 'pending') {
+    if (!pending.length) list = '<div class="empty-state"><div class="empty-icon">📋</div><p>No pending orders</p></div>';
+    else pending.forEach(function(o) { list += orderCardHtml(o, 'pending'); });
+  } else if (activeOrderTab === 'complete') {
+    if (!completed.length) list = '<div class="empty-state"><div class="empty-icon">✅</div><p>No completed orders</p></div>';
+    else completed.forEach(function(o) { list += orderCardHtml(o, 'complete'); });
+  } else if (activeOrderTab === 'removed') {
+    if (!removed.length) list = '<div class="empty-state"><div class="empty-icon">🗑️</div><p>No removed orders</p></div>';
+    else removed.forEach(function(o) { list += orderCardHtml(o, 'removed'); });
+  }
+
+  wrap.innerHTML = tabHtml + list;
 }
 
 function renderAdminReservations() {
@@ -744,6 +779,10 @@ document.addEventListener('click', function(e) {
   else if (action === 'editpre') editPreorder(id);
   else if (action === 'delpre') deletePreorder(id);
   else if (action === 'completeorder') markOrderComplete(id);
+  else if (action === 'removeorder') removeOrder(id);
+  else if (action === 'restoreorder') restoreOrder(id);
+  else if (action === 'permdelorder') permDeleteOrder(id);
+  else if (action === 'ordertab') { activeOrderTab = btn.dataset.tab; renderAdminOrders(); }
   else if (action === 'delorder') deleteOrder(id);
   else if (action === 'delres') deleteReservation(id);
   else if (action === 'togglevoucher') toggleVoucher(id, btn.dataset.active);
@@ -856,11 +895,36 @@ g('preorder-img-file').addEventListener('change', function(e) {
 
 // ── ORDERS ───────────────────────────────────────────────────
 function markOrderComplete(id) {
-  updateDoc(doc(db,'orders',id), {status:'complete'}).then(function() { toast('Order complete!','success'); });
+  updateDoc(doc(db,'orders',id), {status:'complete'}).then(function() { toast('Order marked complete!','success'); });
 }
-function deleteOrder(id) {
-  if (!confirm('Remove this order?')) return;
-  deleteDoc(doc(db,'orders',id)).then(function() { toast('Order removed.','success'); });
+
+async function removeOrder(id) {
+  if (!confirm('Remove this order? Stock will be restored.')) return;
+  try {
+    var o = orders.find(function(x) { return x.id === id; });
+    if (o && o.items) {
+      for (var i = 0; i < o.items.length; i++) {
+        var item = o.items[i];
+        var prodRef = doc(db,'products',item.productId);
+        var prodSnap = await getDoc(prodRef);
+        if (prodSnap.exists()) {
+          var restored = prodSnap.data().stock + item.qty;
+          await updateDoc(prodRef, {stock: restored});
+        }
+      }
+    }
+    await updateDoc(doc(db,'orders',id), {status:'removed'});
+    toast('Order removed, stock restored.','success');
+  } catch(err) { toast('Failed to remove order.','error'); console.error(err); }
+}
+
+function restoreOrder(id) {
+  updateDoc(doc(db,'orders',id), {status:'pending'}).then(function() { toast('Order restored to pending.','success'); });
+}
+
+function permDeleteOrder(id) {
+  if (!confirm('Permanently delete this order? This cannot be undone.')) return;
+  deleteDoc(doc(db,'orders',id)).then(function() { toast('Order permanently deleted.','success'); });
 }
 
 // ── RESERVATIONS ─────────────────────────────────────────────
