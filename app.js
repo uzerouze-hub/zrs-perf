@@ -1,13 +1,11 @@
 // ============================================================
 //  ZRS PERFORMANCE — app.js
-//  Firebase + ImgBB + Web3Forms
 // ============================================================
 
-// ── FIREBASE CONFIG ──────────────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, getDoc, getDocs,
-  updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, where, setDoc
+  getFirestore, collection, doc, addDoc, getDoc,
+  updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -16,24 +14,20 @@ const firebaseConfig = {
   projectId: "zrsperformance",
   storageBucket: "zrsperformance.firebasestorage.app",
   messagingSenderId: "317253693500",
-  appId: "1:317253693500:web:22b50a962ffcf46f989339",
-  measurementId: "G-F9HXL1S135"
+  appId: "1:317253693500:web:22b50a962ffcf46f989339"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ── CONSTANTS ────────────────────────────────────────────────
 const IMGBB_KEY = "d211e3c978e38683b377b28c7a8cd5e4";
 const WEB3FORMS_KEY = "31979fb4-863b-4127-a137-088a357fd5e6";
 const ADMIN_PASS = "pauze360";
 const ORDER_EMAIL = "uzerouze@gmail.com";
 const PICKUP_ADDRESS = "Uze00, Quintos St. Sampaloc Manila";
-const LALAMOVE_FORM = "https://delivery.lalamove.com/forms/PH5dd68764ef7b4c99878bbd860ce34476";
 const GCASH_NUMBER = "0927 968 1135 UZE Ramos";
 
-// ── STATE ────────────────────────────────────────────────────
-let cart = {}; // { productId: { product, qty } }
+let cart = {};
 let products = [];
 let preorders = [];
 let vouchers = [];
@@ -51,44 +45,42 @@ let editingProductId = null;
 let editingPostId = null;
 let editingPreorderId = null;
 
-// ── HELPERS ──────────────────────────────────────────────────
-function $(id) { return document.getElementById(id); }
-function formatPrice(n) { return '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2 }); }
+function g(id) { return document.getElementById(id); }
+function formatPrice(n) { return '₱' + Number(n).toLocaleString('en-PH', {minimumFractionDigits:2}); }
 function formatDate(ts) {
   if (!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-PH', {year:'numeric',month:'short',day:'numeric'});
 }
-function genId() { return Math.random().toString(36).substr(2, 9).toUpperCase(); }
+function genId() { return Math.random().toString(36).substr(2,9).toUpperCase(); }
 
-function toast(msg, type = 'info') {
-  const c = $('toast-container');
+function toast(msg, type) {
+  type = type || 'info';
+  const c = g('toast-container');
   const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', info: '🔔' };
-  t.innerHTML = `<span>${icons[type] || '🔔'}</span><span>${msg}</span>`;
+  t.className = 'toast ' + type;
+  const icons = {success:'✅', error:'❌', info:'🔔'};
+  t.innerHTML = '<span>' + (icons[type]||'🔔') + '</span><span>' + msg + '</span>';
   c.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  setTimeout(function() { t.remove(); }, 4000);
 }
 
-function showModal(id) { $(id).classList.remove('hidden'); }
-function hideModal(id) { $(id).classList.add('hidden'); }
+function showModal(id) { g(id).classList.remove('hidden'); }
+function hideModal(id) { g(id).classList.add('hidden'); }
 
 async function uploadToImgBB(file) {
-  // Convert to base64 for reliable cross-origin upload
-  const base64 = await new Promise((resolve, reject) => {
+  const base64 = await new Promise(function(resolve, reject) {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onload = function() { resolve(reader.result.split(',')[1]); };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
   const fd = new FormData();
   fd.append('image', base64);
-  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: fd });
+  const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, {method:'POST', body:fd});
   const data = await res.json();
   if (data.success) return data.data.display_url || data.data.url;
-  console.error('ImgBB error:', data);
-  throw new Error('Image upload failed: ' + (data.error?.message || 'Unknown error'));
+  throw new Error('Image upload failed');
 }
 
 function stockLabel(stock) {
@@ -97,469 +89,442 @@ function stockLabel(stock) {
   return '';
 }
 
-// ── PANEL NAVIGATION ─────────────────────────────────────────
+// ── PANEL NAV ────────────────────────────────────────────────
 function switchPanel(name) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  $(`panel-${name}`).classList.add('active');
-  document.querySelector(`[data-panel="${name}"]`).classList.add('active');
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  g('panel-' + name).classList.add('active');
+  document.querySelector('[data-panel="' + name + '"]').classList.add('active');
   if (name === 'admin') checkAdminAuth();
 }
-
-document.querySelectorAll('.nav-tab').forEach(btn => {
-  btn.addEventListener('click', () => switchPanel(btn.dataset.panel));
+document.querySelectorAll('.nav-tab').forEach(function(btn) {
+  btn.addEventListener('click', function() { switchPanel(btn.dataset.panel); });
 });
 
 // ── ADMIN AUTH ───────────────────────────────────────────────
 function checkAdminAuth() {
-  const authed = sessionStorage.getItem('zrs_admin');
-  if (authed === 'true') {
-    $('admin-login-screen').classList.add('hidden');
-    $('admin-main').classList.remove('hidden');
+  if (sessionStorage.getItem('zrs_admin') === 'true') {
+    g('admin-login-screen').classList.add('hidden');
+    g('admin-main').classList.remove('hidden');
   } else {
-    $('admin-login-screen').classList.remove('hidden');
-    $('admin-main').classList.add('hidden');
+    g('admin-login-screen').classList.remove('hidden');
+    g('admin-main').classList.add('hidden');
   }
 }
-
-$('admin-login-form').addEventListener('submit', e => {
+g('admin-login-form').addEventListener('submit', function(e) {
   e.preventDefault();
-  const pw = $('admin-password-input').value;
-  if (pw === ADMIN_PASS) {
+  if (g('admin-password-input').value === ADMIN_PASS) {
     sessionStorage.setItem('zrs_admin', 'true');
     checkAdminAuth();
-    loadAdminData();
     toast('Welcome back, Admin!', 'success');
   } else {
     toast('Incorrect password.', 'error');
   }
 });
-
-$('admin-logout-btn').addEventListener('click', () => {
+g('admin-logout-btn').addEventListener('click', function() {
   sessionStorage.removeItem('zrs_admin');
   checkAdminAuth();
 });
 
 // ── ADMIN NAV ────────────────────────────────────────────────
-document.querySelectorAll('.admin-nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+document.querySelectorAll('.admin-nav-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.admin-nav-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
     btn.classList.add('active');
-    $(`admin-${btn.dataset.section}`).classList.add('active');
+    g('admin-' + btn.dataset.section).classList.add('active');
   });
 });
 
 // ── FIREBASE LISTENERS ───────────────────────────────────────
 function startListeners() {
-  // Products (onhand)
-  onSnapshot(query(collection(db, 'products'), orderBy('createdAt', 'desc')), snap => {
-    products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  onSnapshot(query(collection(db,'products'), orderBy('createdAt','desc')), function(snap) {
+    products = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
     renderOrderProducts();
     renderAdminProducts();
   });
-
-  // Preorders
-  onSnapshot(query(collection(db, 'preorders'), orderBy('createdAt', 'desc')), snap => {
-    preorders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  onSnapshot(query(collection(db,'preorders'), orderBy('createdAt','desc')), function(snap) {
+    preorders = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
     renderPreorders();
     renderAdminPreorders();
-    renderAdminReservations();
   });
-
-  // Orders
-  onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), snap => {
-    orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  onSnapshot(query(collection(db,'orders'), orderBy('createdAt','desc')), function(snap) {
+    orders = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
     renderAdminOrders();
   });
-
-  // Vouchers
-  onSnapshot(collection(db, 'vouchers'), snap => {
-    vouchers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  onSnapshot(collection(db,'vouchers'), function(snap) {
+    vouchers = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
     renderAdminVouchers();
   });
-
-  // Gallery
-  onSnapshot(query(collection(db, 'gallery'), orderBy('createdAt', 'desc')), snap => {
-    galleryItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  onSnapshot(query(collection(db,'gallery'), orderBy('createdAt','desc')), function(snap) {
+    galleryItems = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
     renderGallery();
     renderAdminGallery();
   });
-
-  // Posts
-  onSnapshot(query(collection(db, 'posts'), orderBy('createdAt', 'desc')), snap => {
-    posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  onSnapshot(query(collection(db,'posts'), orderBy('createdAt','desc')), function(snap) {
+    posts = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
     renderPosts();
     renderAdminPosts();
   });
-
-  // Appearance
-  onSnapshot(doc(db, 'settings', 'appearance'), snap => {
-    if (snap.exists()) {
-      appearance = snap.data();
-      applyAppearance();
-      renderAdminAppearance();
-    }
+  onSnapshot(query(collection(db,'reservations'), orderBy('createdAt','desc')), function(snap) {
+    reservations = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+    renderAdminReservations();
   });
-
-  // QR Codes
-  onSnapshot(doc(db, 'settings', 'qrcodes'), snap => {
-    if (snap.exists()) {
-      qrCodes = snap.data();
-      renderAdminQRs();
-    }
+  onSnapshot(doc(db,'settings','appearance'), function(snap) {
+    if (snap.exists()) { appearance = snap.data(); applyAppearance(); renderAdminAppearance(); }
+  });
+  onSnapshot(doc(db,'settings','qrcodes'), function(snap) {
+    if (snap.exists()) { qrCodes = snap.data(); renderAdminQRs(); }
   });
 }
 
-
-
-// ════════════════════════════════════════════════════════════
-//  RENDER FUNCTIONS - using data attributes to avoid quoting issues
-// ════════════════════════════════════════════════════════════
-
-function makeBtn(label, cls, action, id) {
-  return '<button class="' + cls + '" data-action="' + action + '" data-id="' + id + '">' + label + '</button>';
+function applyAppearance() {
+  if (appearance.accentColor) document.documentElement.style.setProperty('--accent', appearance.accentColor);
+  if (appearance.heroText && g('general-hero-text')) g('general-hero-text').textContent = appearance.heroText;
+  if (appearance.heroSub && g('general-hero-sub')) g('general-hero-sub').textContent = appearance.heroSub;
 }
 
+// ── HELPERS FOR SAFE HTML BUILDING ──────────────────────────
+function el(tag, attrs, inner) {
+  var a = '';
+  if (attrs) Object.keys(attrs).forEach(function(k) { a += ' ' + k + '="' + attrs[k] + '"'; });
+  return '<' + tag + a + '>' + (inner||'') + '</' + tag + '>';
+}
+function imgOrPlaceholder(url, cls, w, h, icon) {
+  if (url) return '<img src="' + url + '" style="width:' + w + ';height:' + h + ';object-fit:cover;" class="' + cls + '">';
+  return '<div class="' + cls + '-placeholder" style="width:' + w + ';height:' + h + ';background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:2rem;">' + icon + '</div>';
+}
+
+// ════════════════════════════════════════════════════════════
+//  GENERAL PANEL
+// ════════════════════════════════════════════════════════════
 function renderPreorders() {
-  const grid = $('preorder-grid');
+  var grid = g('preorder-grid');
   if (!grid) return;
-  if (!preorders.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No pre-orders available</p></div>';
-    return;
-  }
-  grid.innerHTML = preorders.map(p => {
-    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:220px;object-fit:cover;">' : '<div class="card-img-placeholder">📦</div>';
-    return '<div class="card preorder-card"><div class="preorder-badge">PRE-ORDER</div>' + img + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description||'') + '</div>' + makeBtn('Reserve Now', 'btn btn-primary w-full', 'reserve', p.id) + '</div></div>';
-  }).join('');
+  if (!preorders.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No pre-orders available</p></div>'; return; }
+  var html = '';
+  preorders.forEach(function(p) {
+    var img = imgOrPlaceholder(p.imageUrl, 'card-img', '100%', '220px', '📦');
+    html += '<div class="card preorder-card">';
+    html += '<div class="preorder-badge">PRE-ORDER</div>';
+    html += img;
+    html += '<div class="card-body">';
+    html += '<div class="card-title">' + p.name + '</div>';
+    html += '<div class="card-price">' + formatPrice(p.price) + '</div>';
+    html += '<div class="card-desc">' + (p.description||'') + '</div>';
+    html += '<button class="btn btn-primary w-full" data-action="reserve" data-id="' + p.id + '">Reserve Now</button>';
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function renderGallery() {
+  var grid = g('gallery-grid');
+  if (!grid) return;
+  if (!galleryItems.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><p>No photos yet</p></div>'; return; }
+  var html = '';
+  galleryItems.forEach(function(item) {
+    html += '<div class="gallery-item" data-action="lightbox" data-url="' + item.imageUrl + '">';
+    html += '<img src="' + item.imageUrl + '" alt="" loading="lazy">';
+    html += '</div>';
+  });
+  grid.innerHTML = html;
 }
 
 function renderPosts() {
-  const grid = $('posts-grid');
+  var grid = g('posts-grid');
   if (!grid) return;
-  if (!posts.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>No announcements yet</p></div>';
-    return;
-  }
-  grid.innerHTML = posts.map(p => {
-    const img = p.imageUrl ? '<img class="post-card-img" src="' + p.imageUrl + '" alt="" loading="lazy">' : '';
-    const excerpt = (p.content||'').substring(0,120) + ((p.content||'').length > 120 ? '...' : '');
-    return '<div class="post-card" data-action="viewpost" data-id="' + p.id + '">' + img + '<div class="post-card-body"><div class="post-card-date">' + formatDate(p.createdAt) + '</div><div class="post-card-title">' + p.title + '</div><div class="post-card-excerpt">' + excerpt + '</div></div></div>';
-  }).join('');
-}
-
-function renderOrderProducts() {
-  const grid = $('order-products-grid');
-  if (!grid) return;
-  if (!products.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>No products available</p></div>';
-    return;
-  }
-  grid.innerHTML = products.map(p => {
-    const inCart = cart[p.id] ? cart[p.id].qty : 0;
-    const outOfStock = p.stock <= 0;
-    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:220px;object-fit:cover;">' : '<div class="card-img-placeholder">🏷️</div>';
-    const sLabel = stockLabel(p.stock);
-    const stockHtml = sLabel ? '<div style="margin-bottom:0.8rem;">' + sLabel + '</div>' : '';
-    let actionHtml = '';
-    if (outOfStock) {
-      actionHtml = '<button class="btn btn-outline w-full" disabled>Out of Stock</button>';
-    } else if (inCart > 0) {
-      actionHtml = '<div class="qty-control" style="justify-content:center;gap:1rem;">' + makeBtn('−', 'qty-btn', 'qty-minus', p.id) + '<span class="qty-val">' + inCart + '</span>' + makeBtn('+', 'qty-btn', 'qty-plus', p.id) + '</div>';
-    } else {
-      actionHtml = makeBtn('Add to Cart', 'btn btn-primary w-full', 'addcart', p.id);
-    }
-    return '<div class="card">' + img + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description||'') + '</div>' + stockHtml + actionHtml + '</div></div>';
-  }).join('');
-}
-
-function renderAdminProducts() {
-  const grid = $('admin-products-grid');
-  if (!grid) return;
-  if (!products.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No products yet</p></div>';
-    return;
-  }
-  grid.innerHTML = products.map(p => {
-    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:160px;object-fit:cover;">' : '<div class="admin-product-card-img-placeholder">🏷️</div>';
-    return '<div class="admin-product-card">' + img + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div><div style="margin-top:0.3rem;">' + stockLabel(p.stock) + '</div></div><div class="admin-product-card-footer">' + makeBtn('✏️ Edit', 'btn btn-ghost btn-sm', 'editprod', p.id) + makeBtn('🗑 Delete', 'btn btn-danger btn-sm', 'delprod', p.id) + '</div></div>';
-  }).join('');
-}
-
-function renderAdminPreorders() {
-  const grid = $('admin-preorders-grid');
-  if (!grid) return;
-  if (!preorders.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No pre-orders yet</p></div>';
-    return;
-  }
-  grid.innerHTML = preorders.map(p => {
-    const img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;height:160px;object-fit:cover;">' : '<div class="admin-product-card-img-placeholder">📦</div>';
-    return '<div class="admin-product-card">' + img + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div></div><div class="admin-product-card-footer">' + makeBtn('✏️ Edit', 'btn btn-ghost btn-sm', 'editpre', p.id) + makeBtn('🗑 Delete', 'btn btn-danger btn-sm', 'delpre', p.id) + '</div></div>';
-  }).join('');
-}
-
-function renderAdminOrders() {
-  const list = $('admin-orders-list');
-  if (!list) return;
-  const active = orders.filter(o => o.status !== 'complete');
-  if (!active.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No pending orders</p></div>';
-    return;
-  }
-  list.innerHTML = active.map(o => {
-    const itemsList = o.items ? o.items.map(i => i.name + ' ×' + i.qty).join(', ') : '';
-    const fbLink = o.fbLink ? ' | <a href="' + o.fbLink + '" target="_blank" style="color:var(--accent)">FB</a>' : '';
-    const noteHtml = o.note ? '<div style="font-size:0.82rem;color:var(--light);margin-top:.3rem">Note: ' + o.note + '</div>' : '';
-    return '<div class="order-card"><div class="order-card-header"><div><div class="order-id">' + o.orderId + '</div><div class="order-name">' + o.profileName + ' / ' + o.fullName + '</div></div><div class="flex gap-1">' + makeBtn('✓ Complete', 'btn btn-success btn-sm', 'completeorder', o.id) + makeBtn('🗑', 'btn btn-danger btn-sm', 'delorder', o.id) + '</div></div><div class="order-items-list">' + itemsList + '</div><div class="flex justify-between items-center"><span class="order-total">' + formatPrice(o.total) + '</span><span style="font-size:0.8rem;color:var(--muted)">' + (o.shipping||'') + ' · ' + (o.payment||'') + ' · ' + formatDate(o.createdAt) + '</span></div><div style="font-size:0.82rem;color:var(--muted);margin-top:0.4rem">' + (o.address||'') + ' | ' + (o.contact||'') + fbLink + '</div>' + noteHtml + '</div>';
-  }).join('');
-}
-
-function renderAdminReservations() {
-  const list = $('admin-reservations-list');
-  if (!list) return;
-  if (!reservations.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No reservations yet</p></div>';
-    return;
-  }
-  list.innerHTML = reservations.map(r => {
-    const fbHtml = r.fbLink ? ' · <a href="' + r.fbLink + '" target="_blank" style="color:var(--accent)">FB Profile</a>' : '';
-    return '<div class="reservation-card"><div class="reservation-info"><div class="name">' + r.name + '</div><div class="product">' + r.productName + '</div><div class="contact">' + r.contact + fbHtml + '</div><div style="font-size:0.78rem;color:var(--muted)">' + formatDate(r.createdAt) + '</div></div>' + makeBtn('🗑', 'btn btn-danger btn-sm', 'delres', r.id) + '</div>';
-  }).join('');
-}
-
-function renderAdminVouchers() {
-  const list = $('admin-vouchers-list');
-  if (!list) return;
-  if (!vouchers.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎟️</div><p>No vouchers yet</p></div>';
-    return;
-  }
-  list.innerHTML = vouchers.map(v => {
-    const disc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
-    const toggleLabel = v.active !== false ? 'Disable' : 'Enable';
-    const toggleAction = v.active !== false ? 'disablevoucher' : 'enablevoucher';
-    return '<div class="voucher-card"><div><div class="voucher-code">' + v.code + '</div><div style="font-size:0.8rem;color:var(--muted)">' + (v.type === 'fixed' ? 'Fixed amount' : 'Percentage') + '</div></div><div class="voucher-discount">' + disc + '</div><div class="flex gap-1">' + makeBtn(toggleLabel, 'btn btn-ghost btn-sm', toggleAction, v.id) + makeBtn('🗑', 'btn btn-danger btn-sm', 'delvoucher', v.id) + '</div></div>';
-  }).join('');
-}
-
-function renderAdminGallery() {
-  const grid = $('admin-gallery-grid');
-  if (!grid) return;
-  if (!galleryItems.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><p>No photos yet</p></div>';
-    return;
-  }
-  grid.innerHTML = galleryItems.map(g => {
-    const cap = g.caption ? '<div style="font-size:0.78rem;color:var(--muted);padding:0.3rem 0;">' + g.caption + '</div>' : '';
-    return '<div style="position:relative;"><div class="gallery-item" style="cursor:default;"><img src="' + g.imageUrl + '" alt=""></div>' + cap + makeBtn('🗑', 'btn btn-danger btn-sm', 'delgallery', g.id) + '</div>';
-  }).join('');
-}
-
-function renderAdminPosts() {
-  const list = $('admin-posts-list');
-  if (!list) return;
-  if (!posts.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>No posts yet</p></div>';
-    return;
-  }
-  list.innerHTML = posts.map(p => {
-    return '<div class="order-card"><div class="order-card-header"><div><div style="font-size:1rem;font-weight:800;">' + p.title + '</div><div style="font-size:0.78rem;color:var(--muted)">' + formatDate(p.createdAt) + '</div></div><div class="flex gap-1">' + makeBtn('✏️ Edit', 'btn btn-ghost btn-sm', 'editpost', p.id) + makeBtn('🗑', 'btn btn-danger btn-sm', 'delpost', p.id) + '</div></div><div style="font-size:0.85rem;color:var(--muted)">' + (p.content||'').substring(0,100) + '...</div></div>';
-  }).join('');
-}
-
-function renderAdminQRs() {
-  const methods = ['gcash','maribank','maya','chinabank'];
-  const labels = { gcash:'GCash', maribank:'MariBank', maya:'Maya', chinabank:'ChinaBank' };
-  const grid = $('admin-qr-grid');
-  if (!grid) return;
-  grid.innerHTML = methods.map(m => {
-    const qrImg = qrCodes[m] ? '<img src="' + qrCodes[m] + '" alt="" style="max-width:120px;margin:0 auto 0.8rem;display:block;">' : '<div class="qr-placeholder">📷</div>';
-    return '<div class="qr-admin-card"><div class="qr-name">' + labels[m] + '</div>' + qrImg + '<label class="btn btn-ghost btn-sm w-full" style="cursor:pointer;">Upload QR<input type="file" accept="image/*" style="display:none" data-method="' + m + '" class="qr-file-input"></label></div>';
-  }).join('');
-  // attach file input listeners
-  document.querySelectorAll('.qr-file-input').forEach(inp => {
-    inp.addEventListener('change', function() { uploadQR(this.dataset.method, this); });
+  if (!posts.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>No announcements yet</p></div>'; return; }
+  var html = '';
+  posts.forEach(function(p) {
+    var excerpt = (p.content||'').substring(0,120) + ((p.content||'').length > 120 ? '...' : '');
+    html += '<div class="post-card" data-action="viewpost" data-id="' + p.id + '">';
+    if (p.imageUrl) html += '<img class="post-card-img" src="' + p.imageUrl + '" loading="lazy">';
+    html += '<div class="post-card-body">';
+    html += '<div class="post-card-date">' + formatDate(p.createdAt) + '</div>';
+    html += '<div class="post-card-title">' + p.title + '</div>';
+    html += '<div class="post-card-excerpt">' + excerpt + '</div>';
+    html += '</div></div>';
   });
+  grid.innerHTML = html;
 }
 
-// ── DELEGATED EVENT HANDLER ──────────────────────────────────
-document.addEventListener('click', function(e) {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const action = btn.dataset.action;
-  const id = btn.dataset.id;
-  switch(action) {
-    case 'reserve': openReserveModal(id); break;
-    case 'viewpost': openPostModal(id); break;
-    case 'addcart': addToCart(id); break;
-    case 'qty-plus': changeCartQty(id, 1); break;
-    case 'qty-minus': changeCartQty(id, -1); break;
-    case 'editprod': editProduct(id); break;
-    case 'delprod': deleteProduct(id); break;
-    case 'editpre': editPreorder(id); break;
-    case 'delpre': deletePreorder(id); break;
-    case 'completeorder': markOrderComplete(id); break;
-    case 'delorder': deleteOrder(id); break;
-    case 'delres': deleteReservation(id); break;
-    case 'disablevoucher': toggleVoucher(id, 'true'); break;
-    case 'enablevoucher': toggleVoucher(id, 'false'); break;
-    case 'delvoucher': deleteVoucher(id); break;
-    case 'delgallery': deleteGalleryItem(id); break;
-    case 'editpost': editPost(id); break;
-    case 'delpost': deletePost(id); break;
-  }
+// Reserve modal
+var reservingProductId = null;
+function openReserveModal(id) {
+  reservingProductId = id;
+  var p = preorders.find(function(x) { return x.id === id; });
+  if (!p) return;
+  g('reserve-product-name').textContent = p.name;
+  g('reserve-product-price').textContent = formatPrice(p.price);
+  g('reserve-form').reset();
+  showModal('reserve-modal');
+}
+g('reserve-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var btn = g('reserve-submit-btn');
+  btn.disabled = true; btn.textContent = 'Reserving...';
+  try {
+    var p = preorders.find(function(x) { return x.id === reservingProductId; });
+    await addDoc(collection(db,'reservations'), {
+      productId: reservingProductId,
+      productName: p ? p.name : '',
+      name: g('reserve-name').value.trim(),
+      contact: g('reserve-contact').value.trim(),
+      fbLink: g('reserve-fb').value.trim(),
+      createdAt: serverTimestamp()
+    });
+    hideModal('reserve-modal');
+    toast('Reservation submitted!', 'success');
+    g('reserve-form').reset();
+  } catch(err) { toast('Failed. Try again.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Reserve'; }
 });
 
+function openPostModal(id) {
+  var p = posts.find(function(x) { return x.id === id; });
+  if (!p) return;
+  g('post-modal-title').textContent = p.title;
+  g('post-modal-date').textContent = formatDate(p.createdAt);
+  g('post-modal-img').innerHTML = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:100%;border-radius:8px;margin-bottom:1rem;">' : '';
+  g('post-modal-content').textContent = p.content || '';
+  showModal('post-modal');
+}
 
+// ════════════════════════════════════════════════════════════
+//  ORDER PANEL
+// ════════════════════════════════════════════════════════════
+function renderOrderProducts() {
+  var grid = g('order-products-grid');
+  if (!grid) return;
+  if (!products.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>No products available</p></div>'; return; }
+  var html = '';
+  products.forEach(function(p) {
+    var inCart = cart[p.id] ? cart[p.id].qty : 0;
+    var outOfStock = p.stock <= 0;
+    var img = imgOrPlaceholder(p.imageUrl, 'card-img', '100%', '220px', '🏷️');
+    var sLabel = stockLabel(p.stock);
+    html += '<div class="card">' + img + '<div class="card-body">';
+    html += '<div class="card-title">' + p.name + '</div>';
+    html += '<div class="card-price">' + formatPrice(p.price) + '</div>';
+    html += '<div class="card-desc">' + (p.description||'') + '</div>';
+    if (sLabel) html += '<div style="margin-bottom:.8rem">' + sLabel + '</div>';
+    if (outOfStock) {
+      html += '<button class="btn btn-outline w-full" disabled>Out of Stock</button>';
+    } else if (inCart > 0) {
+      html += '<div class="qty-control" style="justify-content:center;gap:1rem;">';
+      html += '<button class="qty-btn" data-action="qty-minus" data-id="' + p.id + '">−</button>';
+      html += '<span class="qty-val">' + inCart + '</span>';
+      html += '<button class="qty-btn" data-action="qty-plus" data-id="' + p.id + '">+</button>';
+      html += '</div>';
+    } else {
+      html += '<button class="btn btn-primary w-full" data-action="addcart" data-id="' + p.id + '">Add to Cart</button>';
+    }
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function addToCart(id) {
+  var p = products.find(function(x) { return x.id === id; });
+  if (!p) return;
+  if (!cart[id]) cart[id] = {product:p, qty:0};
+  if (cart[id].qty >= p.stock) { toast('Max stock reached', 'error'); return; }
+  cart[id].qty++;
+  updateCart();
+}
+function changeCartQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) delete cart[id];
+  else if (cart[id].qty > cart[id].product.stock) { cart[id].qty = cart[id].product.stock; toast('Max stock reached','error'); }
+  updateCart();
+}
+function updateCart() { renderOrderProducts(); renderCartSidebar(); }
+
+function getCartSubtotal() {
+  return Object.values(cart).reduce(function(s,i) { return s + i.product.price * i.qty; }, 0);
+}
+function getDiscount() {
+  if (!appliedVoucher) return 0;
+  var sub = getCartSubtotal();
+  if (appliedVoucher.type === 'fixed') return Math.min(appliedVoucher.value, sub);
+  if (appliedVoucher.type === 'percent') return sub * (appliedVoucher.value / 100);
+  return 0;
+}
+
+function renderCartSidebar() {
+  var sidebar = g('cart-sidebar');
+  var items = Object.values(cart);
+  var subtotal = getCartSubtotal();
+  var discount = getDiscount();
+  var total = subtotal - discount;
+  var count = items.reduce(function(s,i) { return s + i.qty; }, 0);
+  g('cart-item-count').textContent = count || '';
+  if (!items.length) {
+    sidebar.innerHTML = '<div class="empty-state" style="padding:2rem 1rem"><div class="empty-icon">🛒</div><p>Cart is empty</p></div>';
+    return;
+  }
+  var html = '<h3 style="font-size:1.2rem;font-weight:900;text-transform:uppercase;margin-bottom:1rem;">Your Cart <span style="color:var(--accent)">(' + count + ')</span></h3>';
+  items.forEach(function(item) {
+    var img = item.product.imageUrl ? '<img class="cart-item-img" src="' + item.product.imageUrl + '">' : '<div class="cart-item-img" style="background:var(--dark3);"></div>';
+    html += '<div class="cart-item">' + img;
+    html += '<div class="cart-item-info"><div class="cart-item-name">' + item.product.name + '</div>';
+    html += '<div class="cart-item-price">' + formatPrice(item.product.price) + ' × ' + item.qty + '</div></div>';
+    html += '<div class="qty-control">';
+    html += '<button class="qty-btn" data-action="qty-minus" data-id="' + item.product.id + '">−</button>';
+    html += '<span class="qty-val">' + item.qty + '</span>';
+    html += '<button class="qty-btn" data-action="qty-plus" data-id="' + item.product.id + '">+</button>';
+    html += '</div></div>';
+  });
+  html += '<div style="margin-top:1rem;">';
+  html += '<div class="cart-total-row"><span>Subtotal</span><span>' + formatPrice(subtotal) + '</span></div>';
+  if (discount > 0) html += '<div class="cart-total-row" style="color:var(--green)"><span>Discount</span><span>−' + formatPrice(discount) + '</span></div>';
+  html += '<div class="cart-total-row grand"><span>Total</span><span class="amount">' + formatPrice(total) + '</span></div>';
+  html += '</div>';
+  html += '<div class="shipping-note">⚠ Total does not include shipping fee. Final amount with SF and payment confirmation will be discussed via DM on our Facebook page.</div>';
+  html += '<button class="btn btn-primary w-full mt-2" data-action="checkout">Proceed to Checkout →</button>';
+  sidebar.innerHTML = html;
+}
 
 // ── CHECKOUT ─────────────────────────────────────────────────
-window.startCheckout = function() {
-  if (!Object.keys(cart).length) { toast('Your cart is empty!', 'error'); return; }
+function startCheckout() {
+  if (!Object.keys(cart).length) { toast('Your cart is empty!','error'); return; }
   checkoutStep = 1;
   appliedVoucher = null;
   selectedShipping = null;
   selectedPayment = null;
-  $('voucher-input').value = '';
-  $('voucher-feedback').innerHTML = '';
-  $('checkout-form').reset();
+  g('voucher-input').value = '';
+  g('voucher-feedback').innerHTML = '';
+  g('checkout-form').reset();
+  g('payment-details-wrap').innerHTML = '';
+  g('lalamove-embed-wrap').classList.add('hidden');
+  g('pickup-address-show').classList.add('hidden');
+  document.querySelectorAll('.shipping-option').forEach(function(o) { o.classList.remove('selected'); });
+  document.querySelectorAll('.payment-option').forEach(function(o) { o.classList.remove('selected'); });
   renderCheckoutSteps();
   showModal('checkout-modal');
-};
+}
 
 function renderCheckoutSteps() {
-  document.querySelectorAll('.step-tab').forEach((t, i) => {
-    t.classList.remove('active', 'done');
-    if (i + 1 === checkoutStep) t.classList.add('active');
-    else if (i + 1 < checkoutStep) t.classList.add('done');
+  document.querySelectorAll('.step-tab').forEach(function(t, i) {
+    t.classList.remove('active','done');
+    if (i+1 === checkoutStep) t.classList.add('active');
+    else if (i+1 < checkoutStep) t.classList.add('done');
   });
-  document.querySelectorAll('.checkout-step').forEach((s, i) => {
-    s.classList.toggle('active', i + 1 === checkoutStep);
+  document.querySelectorAll('.checkout-step').forEach(function(s, i) {
+    s.classList.toggle('active', i+1 === checkoutStep);
   });
   if (checkoutStep === 3) renderOrderReview();
 }
 
-window.goCheckoutStep = function(n) {
-  checkoutStep = n;
-  renderCheckoutSteps();
-};
-
-// Voucher
-$('apply-voucher-btn').addEventListener('click', () => {
-  const code = $('voucher-input').value.trim().toUpperCase();
-  const v = vouchers.find(x => x.code === code && x.active !== false);
-  const fb = $('voucher-feedback');
-  if (!v) {
-    fb.innerHTML = '<span class="voucher-error">Invalid voucher code.</span>';
-    appliedVoucher = null;
-  } else {
-    appliedVoucher = v;
-    const desc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
-    fb.innerHTML = `<span class="voucher-success">✓ Voucher applied — ${desc}!</span>`;
-    toast('Voucher applied!', 'success');
-  }
-  renderCartSidebar();
-});
-
-// Shipping selection
-window.selectShipping = function(method) {
+function selectShipping(method) {
   selectedShipping = method;
-  document.querySelectorAll('.shipping-option').forEach(o => o.classList.remove('selected'));
-  document.querySelectorAll(`[data-ship="${method}"]`).forEach(o => o.classList.add('selected'));
-  const llWrap = $('lalamove-embed-wrap');
-  const pickupAddr = $('pickup-address-show');
-  if (method === 'Lalamove') {
-    llWrap.classList.remove('hidden');
-    pickupAddr.classList.add('hidden');
-  } else if (method === 'Pickup') {
-    llWrap.classList.add('hidden');
-    pickupAddr.classList.remove('hidden');
-  } else {
-    llWrap.classList.add('hidden');
-    pickupAddr.classList.add('hidden');
-  }
-};
+  document.querySelectorAll('.shipping-option').forEach(function(o) { o.classList.remove('selected'); });
+  document.querySelectorAll('[data-ship="' + method + '"]').forEach(function(o) { o.classList.add('selected'); });
+  g('lalamove-embed-wrap').classList.toggle('hidden', method !== 'Lalamove');
+  g('pickup-address-show').classList.toggle('hidden', method !== 'Pickup');
+}
 
-// Payment selection
-window.selectPayment = function(method) {
+function selectPayment(method) {
   selectedPayment = method;
-  document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
-  document.querySelectorAll(`[data-pay="${method}"]`).forEach(o => o.classList.add('selected'));
+  document.querySelectorAll('.payment-option').forEach(function(o) { o.classList.remove('selected'); });
+  document.querySelectorAll('[data-pay="' + method + '"]').forEach(function(o) { o.classList.add('selected'); });
   renderPaymentDetails(method);
-};
+}
 
 function renderPaymentDetails(method) {
-  const wrap = $('payment-details-wrap');
-  const note = '<div class="messenger-note" style="margin-top:1rem;">📲 <strong>REMINDER:</strong> Kindly send a <strong>screenshot of your payment</strong> along with your <strong>confirmed order number</strong> to our Facebook Messenger.<br><span style="color:#ff6b6b;font-weight:700;">No screenshot + order number = not processed.</span></div>';
-
-  let html = '';
+  var wrap = g('payment-details-wrap');
+  var note = '<div class="messenger-note" style="margin-top:1rem;">📲 <strong>REMINDER:</strong> Kindly send a <strong>screenshot of your payment</strong> along with your <strong>confirmed order number</strong> to our Facebook Messenger.<br><span style="color:#ff6b6b;font-weight:700;">No screenshot + order number = not processed.</span></div>';
+  var html = '';
   if (method === 'GCash') {
-    const qr = qrCodes['gcash'];
-    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="GCash QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">QR not yet uploaded</div>') + '<div class="qr-label">GCash</div><div class="qr-number">' + GCASH_NUMBER + '</div></div>';
+    var qr = qrCodes['gcash'];
+    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" style="max-width:200px;margin:0 auto .8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:.85rem;margin-bottom:.5rem;">QR not yet uploaded</div>') + '<div class="qr-label">GCash</div><div class="qr-number">' + GCASH_NUMBER + '</div></div>';
   } else if (method === 'MariBank') {
-    const qr = qrCodes['maribank'];
-    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="MariBank QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>') + '<div class="qr-label">MariBank</div></div>';
+    var qr2 = qrCodes['maribank'];
+    html = '<div class="qr-display">' + (qr2 ? '<img src="' + qr2 + '" style="max-width:200px;margin:0 auto .8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:.85rem;">QR not yet uploaded</div>') + '<div class="qr-label">MariBank</div></div>';
   } else if (method === 'Maya') {
-    const qr = qrCodes['maya'];
-    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="Maya QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>') + '<div class="qr-label">Maya</div></div>';
+    var qr3 = qrCodes['maya'];
+    html = '<div class="qr-display">' + (qr3 ? '<img src="' + qr3 + '" style="max-width:200px;margin:0 auto .8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:.85rem;">QR not yet uploaded</div>') + '<div class="qr-label">Maya</div></div>';
   } else if (method === 'ChinaBank') {
-    const qr = qrCodes['chinabank'];
-    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="ChinaBank QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>') + '<div class="qr-label">ChinaBank</div></div>';
+    var qr4 = qrCodes['chinabank'];
+    html = '<div class="qr-display">' + (qr4 ? '<img src="' + qr4 + '" style="max-width:200px;margin:0 auto .8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:.85rem;">QR not yet uploaded</div>') + '<div class="qr-label">ChinaBank</div></div>';
   } else if (method === 'COD/COP-LBC') {
-    html = '<div class="qr-display"><div class="qr-label">COD / COP via LBC</div><p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;">DP coordinate amount on our Facebook page.</p></div>';
+    html = '<div class="qr-display"><div class="qr-label">COD / COP via LBC</div><p style="font-size:.85rem;color:var(--muted);margin-top:.5rem;">DP coordinate amount on our Facebook page.</p></div>';
   } else if (method === 'Cash on Pickup') {
-    html = '<div class="qr-display"><div class="qr-label">Cash on Pickup</div><p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;">Pay when you pick up at: <strong style="color:var(--white)">' + PICKUP_ADDRESS + '</strong></p></div>';
+    html = '<div class="qr-display"><div class="qr-label">Cash on Pickup</div><p style="font-size:.85rem;color:var(--muted);margin-top:.5rem;">Pay when you pick up at: <strong style="color:var(--white)">' + PICKUP_ADDRESS + '</strong></p></div>';
   }
   wrap.innerHTML = html + (html ? note : '');
 }
 
+function renderOrderReview() {
+  var items = Object.values(cart);
+  var sub = getCartSubtotal();
+  var disc = getDiscount();
+  var total = sub - disc;
+  var rows = '';
+  items.forEach(function(i) {
+    rows += '<tr><td>' + i.product.name + '</td><td>' + i.qty + '</td><td>' + formatPrice(i.product.price * i.qty) + '</td></tr>';
+  });
+  g('review-items').innerHTML = '<table class="review-items-table"><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  g('review-subtotal').textContent = formatPrice(sub);
+  g('review-discount').textContent = disc > 0 ? '−' + formatPrice(disc) : '—';
+  g('review-total').textContent = formatPrice(total);
+  g('review-shipping').textContent = selectedShipping || '—';
+  g('review-payment').textContent = selectedPayment || '—';
+  var fd = new FormData(g('checkout-form'));
+  g('review-name').textContent = (fd.get('profile_name')||'') + ' / ' + (fd.get('full_name')||'');
+  g('review-contact').textContent = fd.get('contact') || '';
+  g('review-address').textContent = fd.get('address') || '';
+  g('review-note').textContent = fd.get('note') || '—';
+}
 
-// Checkout step navigation
-$('checkout-next-1').addEventListener('click', () => {
-  if (!selectedShipping) { toast('Please select a shipping method.', 'error'); return; }
-  if (selectedShipping === 'Lalamove') {
-    if (!confirm('Please make sure you have filled out the Lalamove form above before proceeding.')) return;
+g('checkout-next-1').addEventListener('click', function() {
+  if (!selectedShipping) { toast('Please select a shipping method.','error'); return; }
+  if (selectedShipping === 'Lalamove' && !confirm('Please make sure you have filled out the Lalamove form above before proceeding.')) return;
+  checkoutStep = 2; renderCheckoutSteps();
+});
+g('checkout-back-2').addEventListener('click', function() { checkoutStep = 1; renderCheckoutSteps(); });
+g('checkout-next-2').addEventListener('click', function() {
+  var form = g('checkout-form');
+  var fields = ['profile_name','full_name','contact','address'];
+  for (var i = 0; i < fields.length; i++) {
+    if (!form.elements[fields[i]] || !form.elements[fields[i]].value.trim()) { toast('Please fill all required fields.','error'); return; }
   }
-  checkoutStep = 2;
-  renderCheckoutSteps();
+  if (!selectedPayment) { toast('Please select a payment method.','error'); return; }
+  checkoutStep = 3; renderCheckoutSteps();
+});
+g('checkout-back-3').addEventListener('click', function() { checkoutStep = 2; renderCheckoutSteps(); });
+
+g('apply-voucher-btn').addEventListener('click', function() {
+  var code = g('voucher-input').value.trim().toUpperCase();
+  var v = vouchers.find(function(x) { return x.code === code && x.active !== false; });
+  var fb = g('voucher-feedback');
+  if (!v) { fb.innerHTML = '<span class="voucher-error">Invalid voucher code.</span>'; appliedVoucher = null; }
+  else {
+    appliedVoucher = v;
+    var desc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
+    fb.innerHTML = '<span class="voucher-success">✓ Voucher applied — ' + desc + '!</span>';
+    toast('Voucher applied!','success');
+  }
+  renderCartSidebar();
 });
 
-$('checkout-back-2').addEventListener('click', () => { checkoutStep = 1; renderCheckoutSteps(); });
-$('checkout-next-2').addEventListener('click', () => {
-  const form = $('checkout-form');
-  const fields = ['profile_name','full_name','contact','address'];
-  for (const f of fields) {
-    if (!form.elements[f]?.value?.trim()) { toast('Please fill all required fields.', 'error'); return; }
-  }
-  if (!selectedPayment) { toast('Please select a payment method.', 'error'); return; }
-  checkoutStep = 3;
-  renderCheckoutSteps();
-});
-
-$('checkout-back-3').addEventListener('click', () => { checkoutStep = 2; renderCheckoutSteps(); });
-
-$('place-order-btn').addEventListener('click', async () => {
-  const btn = $('place-order-btn');
-  btn.disabled = true;
-  btn.textContent = 'Placing Order...';
-
+g('place-order-btn').addEventListener('click', async function() {
+  var btn = g('place-order-btn');
+  btn.disabled = true; btn.textContent = 'Placing Order...';
   try {
-    const form = $('checkout-form');
-    const fd = new FormData(form);
-    const items = Object.values(cart).map(i => ({
-      productId: i.product.id,
-      name: i.product.name,
-      price: i.product.price,
-      qty: i.qty,
-      subtotal: i.product.price * i.qty
-    }));
-    const sub = getCartSubtotal();
-    const disc = getDiscount();
-    const total = sub - disc;
-    const orderId = 'ZRS-' + genId();
-
-    const orderData = {
-      orderId,
+    var form = g('checkout-form');
+    var fd = new FormData(form);
+    var items = Object.values(cart).map(function(i) {
+      return {productId:i.product.id, name:i.product.name, price:i.product.price, qty:i.qty, subtotal:i.product.price*i.qty};
+    });
+    var sub = getCartSubtotal();
+    var disc = getDiscount();
+    var total = sub - disc;
+    var orderId = 'ZRS-' + genId();
+    var orderData = {
+      orderId: orderId,
       profileName: fd.get('profile_name'),
       fullName: fd.get('full_name'),
       contact: fd.get('contact'),
@@ -568,517 +533,474 @@ $('place-order-btn').addEventListener('click', async () => {
       note: fd.get('note') || '',
       shipping: selectedShipping,
       payment: selectedPayment,
-      voucher: appliedVoucher?.code || null,
-      items,
+      voucher: appliedVoucher ? appliedVoucher.code : null,
+      items: items,
       subtotal: sub,
       discount: disc,
-      total,
+      total: total,
       status: 'pending',
       createdAt: serverTimestamp()
     };
-
-    await addDoc(collection(db, 'orders'), orderData);
-
-    // Deduct stock
-    for (const item of items) {
-      const prodRef = doc(db, 'products', item.productId);
-      const prodSnap = await getDoc(prodRef);
+    await addDoc(collection(db,'orders'), orderData);
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var prodRef = doc(db,'products',item.productId);
+      var prodSnap = await getDoc(prodRef);
       if (prodSnap.exists()) {
-        const newStock = Math.max(0, prodSnap.data().stock - item.qty);
-        await updateDoc(prodRef, { stock: newStock });
+        var newStock = Math.max(0, prodSnap.data().stock - item.qty);
+        await updateDoc(prodRef, {stock:newStock});
       }
     }
-
-    // Send email via Web3Forms
+    var itemLines = items.map(function(i) { return '  • ' + i.name + ' x' + i.qty + ' — ' + formatPrice(i.subtotal); }).join('\n');
     await fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
       body: JSON.stringify({
         access_key: WEB3FORMS_KEY,
-        subject: `New ZRS Order — ${orderId}`,
+        subject: 'New ZRS Order — ' + orderId,
         from_name: 'ZRS Order System',
         to: ORDER_EMAIL,
-        message: `
-NEW ORDER RECEIVED — ${orderId}
-
-Customer: ${fd.get('profile_name')} / ${fd.get('full_name')}
-Contact: ${fd.get('contact')}
-FB: ${fd.get('fb_link') || 'N/A'}
-Address: ${fd.get('address')}
-Note: ${fd.get('note') || 'None'}
-
-Shipping: ${selectedShipping}
-Payment: ${selectedPayment}
-Voucher: ${appliedVoucher?.code || 'None'}
-
-Items:
-${items.map(i => `  • ${i.name} x${i.qty} — ${formatPrice(i.subtotal)}`).join('\n')}
-
-Subtotal: ${formatPrice(sub)}
-Discount: −${formatPrice(disc)}
-TOTAL: ${formatPrice(total)}
-(Shipping fee not included)
-        `
+        message: 'ORDER: ' + orderId + '\nCustomer: ' + fd.get('profile_name') + ' / ' + fd.get('full_name') + '\nContact: ' + fd.get('contact') + '\nAddress: ' + fd.get('address') + '\nShipping: ' + selectedShipping + '\nPayment: ' + selectedPayment + '\n\nItems:\n' + itemLines + '\n\nTotal: ' + formatPrice(total)
       })
     });
-
-    // Success
     cart = {};
     updateCart();
     hideModal('checkout-modal');
+    g('order-success-id').textContent = orderId;
     showModal('order-success-modal');
-    $('order-success-id').textContent = orderId;
-
-  } catch (err) {
-    console.error(err);
-    toast('Order failed. Please try again.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Place Order';
-  }
+  } catch(err) { console.error(err); toast('Order failed. Please try again.','error'); }
+  finally { btn.disabled = false; btn.textContent = 'Place Order'; }
 });
 
 // ════════════════════════════════════════════════════════════
-//  ADMIN PANEL
+//  ADMIN
 // ════════════════════════════════════════════════════════════
-
-// ── PRODUCTS (ONHAND) ────────────────────────────────────────
 function renderAdminProducts() {
-  const grid = $('admin-products-grid');
+  var grid = g('admin-products-grid');
   if (!grid) return;
-  if (!products.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No products yet</p></div>';
-    return;
-  }
-  grid.innerHTML = products.map(p => {
-    const imgHtml = p.imageUrl ? '<img style="width:100%;height:160px;object-fit:cover;" src="' + p.imageUrl + '">' : '<div class="admin-product-card-img-placeholder">🏷️</div>';
-    return '<div class="admin-product-card">' + imgHtml + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div><div style="margin-top:0.3rem;">' + stockLabel(p.stock) + '</div></div><div class="admin-product-card-footer"><button class="btn btn-ghost btn-sm" onclick="editProduct('' + p.id + '')">✏️ Edit</button><button class="btn btn-danger btn-sm" onclick="deleteProduct('' + p.id + '')">🗑 Delete</button></div></div>';
-  }).join('');
+  if (!products.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No products yet</p></div>'; return; }
+  var html = '';
+  products.forEach(function(p) {
+    var img = imgOrPlaceholder(p.imageUrl, 'admin-product-card-img', '100%', '160px', '🏷️');
+    html += '<div class="admin-product-card">' + img;
+    html += '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div>';
+    html += '<div style="font-family:var(--font-mono);color:var(--accent)">' + formatPrice(p.price) + '</div>';
+    html += '<div style="margin-top:.3rem">' + stockLabel(p.stock) + ' ' + p.stock + ' in stock</div></div>';
+    html += '<div class="admin-product-card-footer">';
+    html += '<button class="btn btn-ghost btn-sm" data-action="editprod" data-id="' + p.id + '">✏️ Edit</button>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delprod" data-id="' + p.id + '">🗑 Delete</button>';
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
 }
 
+function renderAdminPreorders() {
+  var grid = g('admin-preorders-grid');
+  if (!grid) return;
+  if (!preorders.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No pre-orders yet</p></div>'; return; }
+  var html = '';
+  preorders.forEach(function(p) {
+    var img = imgOrPlaceholder(p.imageUrl, 'admin-product-card-img', '100%', '160px', '📦');
+    html += '<div class="admin-product-card">' + img;
+    html += '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div>';
+    html += '<div style="font-family:var(--font-mono);color:var(--accent)">' + formatPrice(p.price) + '</div></div>';
+    html += '<div class="admin-product-card-footer">';
+    html += '<button class="btn btn-ghost btn-sm" data-action="editpre" data-id="' + p.id + '">✏️ Edit</button>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delpre" data-id="' + p.id + '">🗑 Delete</button>';
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function renderAdminOrders() {
+  var list = g('admin-orders-list');
+  if (!list) return;
+  var active = orders.filter(function(o) { return o.status !== 'complete'; });
+  if (!active.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No pending orders</p></div>'; return; }
+  var html = '';
+  active.forEach(function(o) {
+    var itemsList = o.items ? o.items.map(function(i) { return i.name + ' ×' + i.qty; }).join(', ') : '';
+    var fbHtml = o.fbLink ? ' | <a href="' + o.fbLink + '" target="_blank" style="color:var(--accent)">FB</a>' : '';
+    var noteHtml = o.note ? '<div style="font-size:.82rem;color:var(--light);margin-top:.3rem">Note: ' + o.note + '</div>' : '';
+    html += '<div class="order-card"><div class="order-card-header"><div>';
+    html += '<div class="order-id">' + o.orderId + '</div>';
+    html += '<div class="order-name">' + o.profileName + ' / ' + o.fullName + '</div></div>';
+    html += '<div class="flex gap-1">';
+    html += '<button class="btn btn-success btn-sm" data-action="completeorder" data-id="' + o.id + '">✓ Complete</button>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delorder" data-id="' + o.id + '">🗑</button>';
+    html += '</div></div>';
+    html += '<div class="order-items-list">' + itemsList + '</div>';
+    html += '<div class="flex justify-between items-center"><span class="order-total">' + formatPrice(o.total) + '</span>';
+    html += '<span style="font-size:.8rem;color:var(--muted)">' + (o.shipping||'') + ' · ' + (o.payment||'') + ' · ' + formatDate(o.createdAt) + '</span></div>';
+    html += '<div style="font-size:.82rem;color:var(--muted);margin-top:.4rem">' + (o.address||'') + ' | ' + (o.contact||'') + fbHtml + '</div>';
+    html += noteHtml + '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function renderAdminReservations() {
+  var list = g('admin-reservations-list');
+  if (!list) return;
+  if (!reservations.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No reservations yet</p></div>'; return; }
+  var html = '';
+  reservations.forEach(function(r) {
+    var fbHtml = r.fbLink ? ' · <a href="' + r.fbLink + '" target="_blank" style="color:var(--accent)">FB Profile</a>' : '';
+    html += '<div class="reservation-card"><div class="reservation-info">';
+    html += '<div class="name">' + r.name + '</div>';
+    html += '<div class="product">' + r.productName + '</div>';
+    html += '<div class="contact">' + r.contact + fbHtml + '</div>';
+    html += '<div style="font-size:.78rem;color:var(--muted)">' + formatDate(r.createdAt) + '</div></div>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delres" data-id="' + r.id + '">🗑</button></div>';
+  });
+  list.innerHTML = html;
+}
+
+function renderAdminVouchers() {
+  var list = g('admin-vouchers-list');
+  if (!list) return;
+  if (!vouchers.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎟️</div><p>No vouchers yet</p></div>'; return; }
+  var html = '';
+  vouchers.forEach(function(v) {
+    var disc = v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off';
+    var isActive = v.active !== false;
+    html += '<div class="voucher-card"><div><div class="voucher-code">' + v.code + '</div>';
+    html += '<div style="font-size:.8rem;color:var(--muted)">' + (v.type === 'fixed' ? 'Fixed amount' : 'Percentage') + '</div></div>';
+    html += '<div class="voucher-discount">' + disc + '</div><div class="flex gap-1">';
+    html += '<button class="btn btn-ghost btn-sm" data-action="togglevoucher" data-id="' + v.id + '" data-active="' + isActive + '">' + (isActive ? 'Disable' : 'Enable') + '</button>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delvoucher" data-id="' + v.id + '">🗑</button></div></div>';
+  });
+  list.innerHTML = html;
+}
+
+function renderAdminGallery() {
+  var grid = g('admin-gallery-grid');
+  if (!grid) return;
+  if (!galleryItems.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><p>No photos yet</p></div>'; return; }
+  var html = '';
+  galleryItems.forEach(function(item) {
+    var cap = item.caption ? '<div style="font-size:.78rem;color:var(--muted);padding:.3rem 0;">' + item.caption + '</div>' : '';
+    html += '<div style="position:relative;"><div class="gallery-item" style="cursor:default;"><img src="' + item.imageUrl + '" alt=""></div>' + cap;
+    html += '<button class="btn btn-danger btn-sm" style="position:absolute;top:4px;right:4px;" data-action="delgallery" data-id="' + item.id + '">🗑</button></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function renderAdminPosts() {
+  var list = g('admin-posts-list');
+  if (!list) return;
+  if (!posts.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>No posts yet</p></div>'; return; }
+  var html = '';
+  posts.forEach(function(p) {
+    html += '<div class="order-card"><div class="order-card-header"><div>';
+    html += '<div style="font-size:1rem;font-weight:800;">' + p.title + '</div>';
+    html += '<div style="font-size:.78rem;color:var(--muted)">' + formatDate(p.createdAt) + '</div></div>';
+    html += '<div class="flex gap-1">';
+    html += '<button class="btn btn-ghost btn-sm" data-action="editpost" data-id="' + p.id + '">✏️ Edit</button>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delpost" data-id="' + p.id + '">🗑</button>';
+    html += '</div></div><div style="font-size:.85rem;color:var(--muted)">' + (p.content||'').substring(0,100) + '...</div></div>';
+  });
+  list.innerHTML = html;
+}
+
+function renderAdminQRs() {
+  var methods = ['gcash','maribank','maya','chinabank'];
+  var labels = {gcash:'GCash', maribank:'MariBank', maya:'Maya', chinabank:'ChinaBank'};
+  var grid = g('admin-qr-grid');
+  if (!grid) return;
+  var html = '';
+  methods.forEach(function(m) {
+    var qrImg = qrCodes[m] ? '<img src="' + qrCodes[m] + '" style="max-width:120px;margin:0 auto .8rem;display:block;">' : '<div class="qr-placeholder">📷</div>';
+    html += '<div class="qr-admin-card"><div class="qr-name">' + labels[m] + '</div>' + qrImg;
+    html += '<label class="btn btn-ghost btn-sm w-full" style="cursor:pointer;">Upload QR<input type="file" accept="image/*" style="display:none" data-qrmethod="' + m + '" class="qr-upload-input"></label></div>';
+  });
+  grid.innerHTML = html;
+  document.querySelectorAll('.qr-upload-input').forEach(function(inp) {
+    inp.addEventListener('change', function() { uploadQR(this.dataset.qrmethod, this); });
+  });
+}
+
+function renderAdminAppearance() {
+  if (g('appear-site-name')) g('appear-site-name').value = appearance.siteName || 'ZRS';
+  if (g('appear-hero-text')) g('appear-hero-text').value = appearance.heroText || '';
+  if (g('appear-hero-sub')) g('appear-hero-sub').value = appearance.heroSub || '';
+  if (g('appear-accent')) g('appear-accent').value = appearance.accentColor || '#fbb800';
+}
+
+// ── DELEGATED CLICK HANDLER ──────────────────────────────────
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  var id = btn.dataset.id;
+  if (action === 'reserve') openReserveModal(id);
+  else if (action === 'viewpost') openPostModal(id);
+  else if (action === 'lightbox') openLightbox(btn.dataset.url);
+  else if (action === 'addcart') addToCart(id);
+  else if (action === 'qty-plus') changeCartQty(id, 1);
+  else if (action === 'qty-minus') changeCartQty(id, -1);
+  else if (action === 'checkout') startCheckout();
+  else if (action === 'editprod') editProduct(id);
+  else if (action === 'delprod') deleteProduct(id);
+  else if (action === 'editpre') editPreorder(id);
+  else if (action === 'delpre') deletePreorder(id);
+  else if (action === 'completeorder') markOrderComplete(id);
+  else if (action === 'delorder') deleteOrder(id);
+  else if (action === 'delres') deleteReservation(id);
+  else if (action === 'togglevoucher') toggleVoucher(id, btn.dataset.active);
+  else if (action === 'delvoucher') deleteVoucher(id);
+  else if (action === 'delgallery') deleteGalleryItem(id);
+  else if (action === 'editpost') editPost(id);
+  else if (action === 'delpost') deletePost(id);
+});
+
+function openLightbox(url) {
+  var lb = document.createElement('div');
+  lb.className = 'lightbox';
+  lb.innerHTML = '<img src="' + url + '">';
+  lb.addEventListener('click', function() { lb.remove(); });
+  document.body.appendChild(lb);
+}
+
+// ── PRODUCT CRUD ─────────────────────────────────────────────
 window.openAddProductModal = function() {
   editingProductId = null;
-  $('product-modal-title').textContent = 'Add Product';
-  $('product-form').reset();
-  $('product-img-preview').innerHTML = '';
+  g('product-modal-title').textContent = 'Add Product';
+  g('product-form').reset();
+  g('product-img-preview').innerHTML = '';
   showModal('product-modal');
 };
-
-window.editProduct = function(id) {
-  const p = products.find(x => x.id === id);
+function editProduct(id) {
+  var p = products.find(function(x) { return x.id === id; });
   if (!p) return;
   editingProductId = id;
-  $('product-modal-title').textContent = 'Edit Product';
-  $('product-name').value = p.name;
-  $('product-price').value = p.price;
-  $('product-stock').value = p.stock;
-  $('product-desc').value = p.description || '';
-  $('product-img-preview').innerHTML = p.imageUrl ? `<img src="${p.imageUrl}" style="max-height:100px;border-radius:4px;">` : '';
+  g('product-modal-title').textContent = 'Edit Product';
+  g('product-name').value = p.name;
+  g('product-price').value = p.price;
+  g('product-stock').value = p.stock;
+  g('product-desc').value = p.description || '';
+  g('product-img-preview').innerHTML = p.imageUrl ? '<img src="' + p.imageUrl + '" style="max-height:100px;border-radius:4px;margin-top:.5rem">' : '';
   showModal('product-modal');
-};
-
-window.deleteProduct = async function(id) {
-  if (!confirm('Delete this product?')) return;
-  await deleteDoc(doc(db, 'products', id));
-  toast('Product deleted.', 'success');
-};
-
-$('product-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const btn = $('product-save-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-  try {
-    const imgFile = $('product-img-file').files[0];
-    let imageUrl = editingProductId ? products.find(x => x.id === editingProductId)?.imageUrl || '' : '';
-    if (imgFile) {
-      toast('Uploading image...', 'info');
-      imageUrl = await uploadToImgBB(imgFile);
-      console.log('Uploaded image URL:', imageUrl);
-    }
-
-    const data = {
-      name: $('product-name').value.trim(),
-      price: parseFloat($('product-price').value),
-      stock: parseInt($('product-stock').value),
-      description: $('product-desc').value.trim(),
-      imageUrl: imageUrl || '',
-    };
-
-    if (editingProductId) {
-      await updateDoc(doc(db, 'products', editingProductId), data);
-      toast('Product updated!', 'success');
-    } else {
-      data.createdAt = serverTimestamp();
-      await addDoc(collection(db, 'products'), data);
-      toast('Product added!', 'success');
-    }
-    hideModal('product-modal');
-  } catch (err) {
-    console.error(err);
-    toast('Failed to save product.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save Product';
-  }
-});
-
-// Live image preview
-$('product-img-file').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) {
-    const url = URL.createObjectURL(f);
-    $('product-img-preview').innerHTML = `<img src="${url}" style="max-height:100px;border-radius:4px;margin-top:0.5rem;">`;
-  }
-});
-
-// ── PREORDERS ADMIN ──────────────────────────────────────────
-function renderAdminPreorders() {
-  const grid = $('admin-preorders-grid');
-  if (!grid) return;
-  if (!preorders.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No pre-orders yet</p></div>';
-    return;
-  }
-  grid.innerHTML = preorders.map(p => {
-    const img = p.imageUrl ? '<img class="admin-product-card-img" src="' + p.imageUrl + '" style="width:100%;height:160px;object-fit:cover;">' : '<div class="admin-product-card-img-placeholder">📦</div>';
-    return '<div class="admin-product-card">' + img + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div></div><div class="admin-product-card-footer"><button class="btn btn-ghost btn-sm" onclick="editPreorder('' + p.id + '')">✏️ Edit</button><button class="btn btn-danger btn-sm" onclick="deletePreorder('' + p.id + '')">🗑</button></div></div>';
-  }).join('');
 }
+function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+  deleteDoc(doc(db,'products',id)).then(function() { toast('Product deleted.','success'); });
+}
+g('product-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var btn = g('product-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    var imgFile = g('product-img-file').files[0];
+    var imageUrl = editingProductId ? (products.find(function(x) { return x.id === editingProductId; }) || {}).imageUrl || '' : '';
+    if (imgFile) { toast('Uploading image...','info'); imageUrl = await uploadToImgBB(imgFile); }
+    var data = {
+      name: g('product-name').value.trim(),
+      price: parseFloat(g('product-price').value),
+      stock: parseInt(g('product-stock').value),
+      description: g('product-desc').value.trim(),
+      imageUrl: imageUrl || ''
+    };
+    if (editingProductId) { await updateDoc(doc(db,'products',editingProductId), data); toast('Product updated!','success'); }
+    else { data.createdAt = serverTimestamp(); await addDoc(collection(db,'products'), data); toast('Product added!','success'); }
+    hideModal('product-modal');
+  } catch(err) { console.error(err); toast('Failed to save.','error'); }
+  finally { btn.disabled = false; btn.textContent = 'Save Product'; }
+});
+g('product-img-file').addEventListener('change', function(e) {
+  var f = e.target.files[0];
+  if (f) g('product-img-preview').innerHTML = '<img src="' + URL.createObjectURL(f) + '" style="max-height:100px;border-radius:4px;margin-top:.5rem">';
+});
 
+// ── PREORDER CRUD ────────────────────────────────────────────
 window.openAddPreorderModal = function() {
   editingPreorderId = null;
-  $('preorder-modal-title').textContent = 'Add Pre-Order Item';
-  $('preorder-form').reset();
-  $('preorder-img-preview').innerHTML = '';
+  g('preorder-modal-title').textContent = 'Add Pre-Order Item';
+  g('preorder-form').reset();
+  g('preorder-img-preview').innerHTML = '';
   showModal('preorder-modal');
 };
-
-window.editPreorder = function(id) {
-  const p = preorders.find(x => x.id === id);
+function editPreorder(id) {
+  var p = preorders.find(function(x) { return x.id === id; });
   if (!p) return;
   editingPreorderId = id;
-  $('preorder-modal-title').textContent = 'Edit Pre-Order Item';
-  $('preorder-name').value = p.name;
-  $('preorder-price').value = p.price;
-  $('preorder-desc').value = p.description || '';
-  $('preorder-img-preview').innerHTML = p.imageUrl ? `<img src="${p.imageUrl}" style="max-height:100px;border-radius:4px;">` : '';
+  g('preorder-modal-title').textContent = 'Edit Pre-Order Item';
+  g('preorder-name').value = p.name;
+  g('preorder-price').value = p.price;
+  g('preorder-desc').value = p.description || '';
+  g('preorder-img-preview').innerHTML = p.imageUrl ? '<img src="' + p.imageUrl + '" style="max-height:100px;border-radius:4px;">' : '';
   showModal('preorder-modal');
-};
-
-window.deletePreorder = async function(id) {
+}
+function deletePreorder(id) {
   if (!confirm('Delete this pre-order item?')) return;
-  await deleteDoc(doc(db, 'preorders', id));
-  toast('Pre-order deleted.', 'success');
-};
-
-$('preorder-form').addEventListener('submit', async e => {
+  deleteDoc(doc(db,'preorders',id)).then(function() { toast('Pre-order deleted.','success'); });
+}
+g('preorder-form').addEventListener('submit', async function(e) {
   e.preventDefault();
-  const btn = $('preorder-save-btn');
+  var btn = g('preorder-save-btn');
   btn.disabled = true; btn.textContent = 'Saving...';
   try {
-    const imgFile = $('preorder-img-file').files[0];
-    let imageUrl = editingPreorderId ? preorders.find(x => x.id === editingPreorderId)?.imageUrl || '' : '';
-    if (imgFile) imageUrl = await uploadToImgBB(imgFile);
-    const data = {
-      name: $('preorder-name').value.trim(),
-      price: parseFloat($('preorder-price').value),
-      description: $('preorder-desc').value.trim(),
-      imageUrl
-    };
-    if (editingPreorderId) {
-      await updateDoc(doc(db, 'preorders', editingPreorderId), data);
-      toast('Pre-order updated!', 'success');
-    } else {
-      data.createdAt = serverTimestamp();
-      await addDoc(collection(db, 'preorders'), data);
-      toast('Pre-order added!', 'success');
-    }
+    var imgFile = g('preorder-img-file').files[0];
+    var imageUrl = editingPreorderId ? (preorders.find(function(x) { return x.id === editingPreorderId; }) || {}).imageUrl || '' : '';
+    if (imgFile) { toast('Uploading image...','info'); imageUrl = await uploadToImgBB(imgFile); }
+    var data = {name: g('preorder-name').value.trim(), price: parseFloat(g('preorder-price').value), description: g('preorder-desc').value.trim(), imageUrl: imageUrl || ''};
+    if (editingPreorderId) { await updateDoc(doc(db,'preorders',editingPreorderId), data); toast('Pre-order updated!','success'); }
+    else { data.createdAt = serverTimestamp(); await addDoc(collection(db,'preorders'), data); toast('Pre-order added!','success'); }
     hideModal('preorder-modal');
-  } catch (err) { toast('Failed to save.', 'error'); console.error(err); }
+  } catch(err) { toast('Failed.','error'); }
   finally { btn.disabled = false; btn.textContent = 'Save'; }
 });
-
-$('preorder-img-file').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) $('preorder-img-preview').innerHTML = `<img src="${URL.createObjectURL(f)}" style="max-height:100px;border-radius:4px;margin-top:.5rem">`;
+g('preorder-img-file').addEventListener('change', function(e) {
+  var f = e.target.files[0];
+  if (f) g('preorder-img-preview').innerHTML = '<img src="' + URL.createObjectURL(f) + '" style="max-height:100px;border-radius:4px;margin-top:.5rem">';
 });
 
-// ── ORDERS ADMIN ─────────────────────────────────────────────
-function renderAdminOrders() {
-  const list = $('admin-orders-list');
-  if (!list) return;
-  const active = orders.filter(o => o.status !== 'complete');
-  if (!active.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No pending orders</p></div>';
-    return;
-  }
-  list.innerHTML = active.map(o => {
-    const itemsList = o.items ? o.items.map(i => i.name + ' ×' + i.qty).join(', ') : '';
-    const fbLink = o.fbLink ? ' | <a href="' + o.fbLink + '" target="_blank" style="color:var(--accent)">FB</a>' : '';
-    const noteHtml = o.note ? '<div style="font-size:0.82rem;color:var(--light);margin-top:.3rem">Note: ' + o.note + '</div>' : '';
-    return '<div class="order-card"><div class="order-card-header"><div><div class="order-id">' + o.orderId + '</div><div class="order-name">' + o.profileName + ' / ' + o.fullName + '</div></div><div class="flex gap-1"><button class="btn btn-success btn-sm" onclick="markOrderComplete('' + o.id + '')">✓ Complete</button><button class="btn btn-danger btn-sm" onclick="deleteOrder('' + o.id + '')">🗑</button></div></div><div class="order-items-list">' + itemsList + '</div><div class="flex justify-between items-center"><span class="order-total">' + formatPrice(o.total) + '</span><span style="font-size:0.8rem;color:var(--muted)">' + (o.shipping||'') + ' · ' + (o.payment||'') + ' · ' + formatDate(o.createdAt) + '</span></div><div style="font-size:0.82rem;color:var(--muted);margin-top:0.4rem">' + (o.address||'') + ' | ' + (o.contact||'') + fbLink + '</div>' + noteHtml + '</div>';
-  }).join('');
+// ── ORDERS ───────────────────────────────────────────────────
+function markOrderComplete(id) {
+  updateDoc(doc(db,'orders',id), {status:'complete'}).then(function() { toast('Order complete!','success'); });
 }
-
-window.markOrderComplete = async function(id) {
-  await updateDoc(doc(db, 'orders', id), { status: 'complete' });
-  toast('Order marked as complete!', 'success');
-};
-
-window.deleteOrder = async function(id) {
+function deleteOrder(id) {
   if (!confirm('Remove this order?')) return;
-  await deleteDoc(doc(db, 'orders', id));
-  toast('Order removed.', 'success');
-};
-
-// ── RESERVATIONS ADMIN ───────────────────────────────────────
-function renderAdminReservations() {
-  const list = $('admin-reservations-list');
-  if (!list) return;
-  if (!reservations.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No reservations yet</p></div>';
-    return;
-  }
-  list.innerHTML = reservations.map(r => {
-    const fbHtml = r.fbLink ? ' · <a href="' + r.fbLink + '" target="_blank" style="color:var(--accent)">FB Profile</a>' : '';
-    return '<div class="reservation-card"><div class="reservation-info"><div class="name">' + r.name + '</div><div class="product">' + r.productName + '</div><div class="contact">' + r.contact + fbHtml + '</div><div style="font-size:0.78rem;color:var(--muted)">' + formatDate(r.createdAt) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteReservation('' + r.id + '')">🗑</button></div>';
-  }).join('');
+  deleteDoc(doc(db,'orders',id)).then(function() { toast('Order removed.','success'); });
 }
 
-window.deleteReservation = async function(id) {
+// ── RESERVATIONS ─────────────────────────────────────────────
+function deleteReservation(id) {
   if (!confirm('Remove this reservation?')) return;
-  await deleteDoc(doc(db, 'reservations', id));
-  toast('Reservation removed.', 'success');
-};
-
-// ── VOUCHERS ADMIN ───────────────────────────────────────────
-function renderAdminVouchers() {
-  const list = $('admin-vouchers-list');
-  if (!list) return;
-  if (!vouchers.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎟️</div><p>No vouchers yet</p></div>';
-    return;
-  }
-  list.innerHTML = vouchers.map(v => `
-    <div class="voucher-card">
-      <div>
-        <div class="voucher-code">${v.code}</div>
-        <div style="font-size:0.8rem;color:var(--muted)">${v.type === 'fixed' ? 'Fixed amount' : 'Percentage'}</div>
-      </div>
-      <div class="voucher-discount">${v.type === 'fixed' ? '₱' + v.value + ' off' : v.value + '% off'}</div>
-      <div class="flex gap-1">
-        <button class="btn btn-ghost btn-sm" onclick="toggleVoucher('${v.id}','${v.active !== false}')">${v.active !== false ? 'Disable' : 'Enable'}</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteVoucher('${v.id}')">🗑</button>
-      </div>
-    </div>
-  `).join('');
+  deleteDoc(doc(db,'reservations',id)).then(function() { toast('Removed.','success'); });
 }
 
-$('voucher-add-form').addEventListener('submit', async e => {
+// ── VOUCHERS ─────────────────────────────────────────────────
+g('voucher-add-form').addEventListener('submit', async function(e) {
   e.preventDefault();
-  const code = $('voucher-code-input').value.trim().toUpperCase();
-  const type = $('voucher-type-select').value;
-  const value = parseFloat($('voucher-value-input').value);
-  if (!code || !value) { toast('Fill all fields.', 'error'); return; }
-  const exists = vouchers.find(v => v.code === code);
-  if (exists) { toast('Code already exists.', 'error'); return; }
-  await addDoc(collection(db, 'vouchers'), { code, type, value, active: true });
-  $('voucher-add-form').reset();
-  toast('Voucher added!', 'success');
+  var code = g('voucher-code-input').value.trim().toUpperCase();
+  var type = g('voucher-type-select').value;
+  var value = parseFloat(g('voucher-value-input').value);
+  if (!code || !value) { toast('Fill all fields.','error'); return; }
+  if (vouchers.find(function(v) { return v.code === code; })) { toast('Code already exists.','error'); return; }
+  await addDoc(collection(db,'vouchers'), {code:code, type:type, value:value, active:true});
+  g('voucher-add-form').reset();
+  toast('Voucher added!','success');
 });
-
-window.toggleVoucher = async function(id, currentActive) {
-  await updateDoc(doc(db, 'vouchers', id), { active: currentActive === 'true' ? false : true });
-};
-
-window.deleteVoucher = async function(id) {
+function toggleVoucher(id, currentActive) {
+  updateDoc(doc(db,'vouchers',id), {active: currentActive === 'true' ? false : true});
+}
+function deleteVoucher(id) {
   if (!confirm('Delete voucher?')) return;
-  await deleteDoc(doc(db, 'vouchers', id));
-  toast('Voucher deleted.', 'success');
-};
-
-// ── GALLERY ADMIN ────────────────────────────────────────────
-function renderAdminGallery() {
-  const grid = $('admin-gallery-grid');
-  if (!grid) return;
-  if (!galleryItems.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><p>No photos yet</p></div>';
-    return;
-  }
-  grid.innerHTML = galleryItems.map(g => {
-    const cap = g.caption ? '<div style="font-size:0.78rem;color:var(--muted);padding:0.3rem 0;">' + g.caption + '</div>' : '';
-    return '<div style="position:relative;"><div class="gallery-item" style="cursor:default;"><img src="' + g.imageUrl + '" alt="' + (g.caption||'') + '"></div>' + cap + '<button class="btn btn-danger btn-sm" style="position:absolute;top:4px;right:4px;" onclick="deleteGalleryItem('' + g.id + '')">🗑</button></div>';
-  }).join('');
+  deleteDoc(doc(db,'vouchers',id)).then(function() { toast('Voucher deleted.','success'); });
 }
 
-$('gallery-upload-form').addEventListener('submit', async e => {
+// ── GALLERY ──────────────────────────────────────────────────
+g('gallery-upload-form').addEventListener('submit', async function(e) {
   e.preventDefault();
-  const btn = $('gallery-upload-btn');
+  var btn = g('gallery-upload-btn');
   btn.disabled = true; btn.textContent = 'Uploading...';
   try {
-    const file = $('gallery-file-input').files[0];
-    if (!file) { toast('Select an image.', 'error'); return; }
-    const imageUrl = await uploadToImgBB(file);
-    const caption = $('gallery-caption-input').value.trim();
-    await addDoc(collection(db, 'gallery'), { imageUrl, caption, createdAt: serverTimestamp() });
-    $('gallery-upload-form').reset();
-    toast('Photo added!', 'success');
-  } catch (err) { toast('Upload failed.', 'error'); }
+    var file = g('gallery-file-input').files[0];
+    if (!file) { toast('Select an image.','error'); return; }
+    var imageUrl = await uploadToImgBB(file);
+    var caption = g('gallery-caption-input').value.trim();
+    await addDoc(collection(db,'gallery'), {imageUrl:imageUrl, caption:caption, createdAt:serverTimestamp()});
+    g('gallery-upload-form').reset();
+    toast('Photo added!','success');
+  } catch(err) { toast('Upload failed.','error'); }
   finally { btn.disabled = false; btn.textContent = 'Upload Photo'; }
 });
-
-window.deleteGalleryItem = async function(id) {
+function deleteGalleryItem(id) {
   if (!confirm('Delete this photo?')) return;
-  await deleteDoc(doc(db, 'gallery', id));
-  toast('Photo deleted.', 'success');
-};
-
-// ── POSTS ADMIN ──────────────────────────────────────────────
-function renderAdminPosts() {
-  const list = $('admin-posts-list');
-  if (!list) return;
-  if (!posts.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>No posts yet</p></div>';
-    return;
-  }
-  list.innerHTML = posts.map(p => {
-    return '<div class="order-card"><div class="order-card-header"><div><div style="font-family:var(--font-display);font-size:1rem;font-weight:800;text-transform:uppercase;">' + p.title + '</div><div style="font-size:0.78rem;color:var(--muted)">' + formatDate(p.createdAt) + '</div></div><div class="flex gap-1"><button class="btn btn-ghost btn-sm" onclick="editPost('' + p.id + '')">✏️ Edit</button><button class="btn btn-danger btn-sm" onclick="deletePost('' + p.id + '')">🗑</button></div></div><div style="font-size:0.85rem;color:var(--muted)">' + (p.content||'').substring(0,100) + '...</div></div>';
-  }).join('');
+  deleteDoc(doc(db,'gallery',id)).then(function() { toast('Photo deleted.','success'); });
 }
 
+// ── POSTS ────────────────────────────────────────────────────
 window.openAddPostModal = function() {
   editingPostId = null;
-  $('post-form-modal-title').textContent = 'New Post';
-  $('post-form').reset();
-  $('post-img-preview').innerHTML = '';
+  g('post-form-modal-title').textContent = 'New Post';
+  g('post-form').reset();
+  g('post-img-preview').innerHTML = '';
   showModal('post-form-modal');
 };
-
-window.editPost = function(id) {
-  const p = posts.find(x => x.id === id);
+function editPost(id) {
+  var p = posts.find(function(x) { return x.id === id; });
   if (!p) return;
   editingPostId = id;
-  $('post-form-modal-title').textContent = 'Edit Post';
-  $('post-title-input').value = p.title;
-  $('post-content-input').value = p.content || '';
-  $('post-img-preview').innerHTML = p.imageUrl ? `<img src="${p.imageUrl}" style="max-height:100px;border-radius:4px;">` : '';
+  g('post-form-modal-title').textContent = 'Edit Post';
+  g('post-title-input').value = p.title;
+  g('post-content-input').value = p.content || '';
+  g('post-img-preview').innerHTML = p.imageUrl ? '<img src="' + p.imageUrl + '" style="max-height:100px;border-radius:4px;">' : '';
   showModal('post-form-modal');
-};
-
-window.deletePost = async function(id) {
+}
+function deletePost(id) {
   if (!confirm('Delete this post?')) return;
-  await deleteDoc(doc(db, 'posts', id));
-  toast('Post deleted.', 'success');
-};
-
-$('post-form').addEventListener('submit', async e => {
+  deleteDoc(doc(db,'posts',id)).then(function() { toast('Post deleted.','success'); });
+}
+g('post-form').addEventListener('submit', async function(e) {
   e.preventDefault();
-  const btn = $('post-save-btn');
+  var btn = g('post-save-btn');
   btn.disabled = true; btn.textContent = 'Saving...';
   try {
-    const imgFile = $('post-img-file').files[0];
-    let imageUrl = editingPostId ? posts.find(x => x.id === editingPostId)?.imageUrl || '' : '';
+    var imgFile = g('post-img-file').files[0];
+    var imageUrl = editingPostId ? (posts.find(function(x) { return x.id === editingPostId; }) || {}).imageUrl || '' : '';
     if (imgFile) imageUrl = await uploadToImgBB(imgFile);
-    const data = {
-      title: $('post-title-input').value.trim(),
-      content: $('post-content-input').value.trim(),
-      imageUrl
-    };
-    if (editingPostId) {
-      await updateDoc(doc(db, 'posts', editingPostId), data);
-      toast('Post updated!', 'success');
-    } else {
-      data.createdAt = serverTimestamp();
-      await addDoc(collection(db, 'posts'), data);
-      toast('Post published!', 'success');
-    }
+    var data = {title: g('post-title-input').value.trim(), content: g('post-content-input').value.trim(), imageUrl: imageUrl || ''};
+    if (editingPostId) { await updateDoc(doc(db,'posts',editingPostId), data); toast('Post updated!','success'); }
+    else { data.createdAt = serverTimestamp(); await addDoc(collection(db,'posts'), data); toast('Post published!','success'); }
     hideModal('post-form-modal');
-  } catch (err) { toast('Failed.', 'error'); console.error(err); }
+  } catch(err) { toast('Failed.','error'); }
   finally { btn.disabled = false; btn.textContent = 'Save Post'; }
 });
-
-$('post-img-file').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) $('post-img-preview').innerHTML = `<img src="${URL.createObjectURL(f)}" style="max-height:100px;border-radius:4px;margin-top:.5rem">`;
+g('post-img-file').addEventListener('change', function(e) {
+  var f = e.target.files[0];
+  if (f) g('post-img-preview').innerHTML = '<img src="' + URL.createObjectURL(f) + '" style="max-height:100px;border-radius:4px;margin-top:.5rem">';
 });
 
-// ── QR CODES ADMIN ───────────────────────────────────────────
-function renderAdminQRs() {
-  const methods = ['gcash','maribank','maya','chinabank'];
-  const labels = { gcash:'GCash', maribank:'MariBank', maya:'Maya', chinabank:'ChinaBank' };
-  const grid = $('admin-qr-grid');
-  if (!grid) return;
-  grid.innerHTML = methods.map(m => {
-    const qrImg = qrCodes[m] ? '<img src="' + qrCodes[m] + '" alt="' + labels[m] + ' QR" style="max-width:120px;margin:0 auto 0.8rem;display:block;">' : '<div class="qr-placeholder">📷</div>';
-    return '<div class="qr-admin-card"><div class="qr-name">' + labels[m] + '</div>' + qrImg + '<label class="btn btn-ghost btn-sm w-full" style="cursor:pointer;">Upload QR<input type="file" accept="image/*" style="display:none" onchange="uploadQR('' + m + '', this)"></label></div>';
-  }).join('');
-}
-
-window.uploadQR = async function(method, input) {
-  const file = input.files[0];
+// ── QR CODES ─────────────────────────────────────────────────
+async function uploadQR(method, input) {
+  var file = input.files[0];
   if (!file) return;
   try {
-    toast('Uploading QR...', 'info');
-    const url = await uploadToImgBB(file);
-    await setDoc(doc(db, 'settings', 'qrcodes'), { ...qrCodes, [method]: url }, { merge: true });
-    toast('QR uploaded!', 'success');
-  } catch (err) { toast('QR upload failed.', 'error'); console.error(err); }
-};
-
-// ── APPEARANCE ADMIN ─────────────────────────────────────────
-function renderAdminAppearance() {
-  if ($('appear-site-name')) $('appear-site-name').value = appearance.siteName || 'ZRS';
-  if ($('appear-hero-text')) $('appear-hero-text').value = appearance.heroText || '';
-  if ($('appear-hero-sub')) $('appear-hero-sub').value = appearance.heroSub || '';
-  if ($('appear-accent')) $('appear-accent').value = appearance.accentColor || '#E8001D';
+    toast('Uploading QR...','info');
+    var url = await uploadToImgBB(file);
+    var updated = Object.assign({}, qrCodes);
+    updated[method] = url;
+    await setDoc(doc(db,'settings','qrcodes'), updated, {merge:true});
+    toast('QR uploaded!','success');
+  } catch(err) { toast('QR upload failed.','error'); }
 }
 
-$('appearance-form').addEventListener('submit', async e => {
+// ── APPEARANCE ───────────────────────────────────────────────
+g('appearance-form').addEventListener('submit', async function(e) {
   e.preventDefault();
   try {
-    await setDoc(doc(db, 'settings', 'appearance'), {
-      siteName: $('appear-site-name').value.trim(),
-      heroText: $('appear-hero-text').value.trim(),
-      heroSub: $('appear-hero-sub').value.trim(),
-      accentColor: $('appear-accent').value
+    await setDoc(doc(db,'settings','appearance'), {
+      siteName: g('appear-site-name').value.trim(),
+      heroText: g('appear-hero-text').value.trim(),
+      heroSub: g('appear-hero-sub').value.trim(),
+      accentColor: g('appear-accent').value
     });
-    toast('Appearance saved!', 'success');
-  } catch (err) { toast('Failed to save.', 'error'); }
+    toast('Appearance saved!','success');
+  } catch(err) { toast('Failed.','error'); }
 });
 
-// ── ADMIN DATA LOAD ──────────────────────────────────────────
-function loadAdminData() {
-  // Listeners already running, just render
-  renderAdminOrders();
-  renderAdminProducts();
-  renderAdminPreorders();
-  renderAdminReservations();
-  renderAdminVouchers();
-  renderAdminGallery();
-  renderAdminPosts();
-  renderAdminQRs();
-  renderAdminAppearance();
-}
-
-// ── MODAL CLOSE HANDLERS ─────────────────────────────────────
-document.querySelectorAll('[data-close-modal]').forEach(btn => {
-  btn.addEventListener('click', () => hideModal(btn.dataset.closeModal));
+// ── SHIPPING / PAYMENT CLICK ─────────────────────────────────
+document.querySelectorAll('.shipping-option').forEach(function(opt) {
+  opt.addEventListener('click', function() { selectShipping(opt.dataset.ship); });
+});
+document.querySelectorAll('.payment-option').forEach(function(opt) {
+  opt.addEventListener('click', function() { selectPayment(opt.dataset.pay); });
 });
 
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) overlay.classList.add('hidden');
-  });
+// ── MODAL CLOSE ──────────────────────────────────────────────
+document.querySelectorAll('[data-close-modal]').forEach(function(btn) {
+  btn.addEventListener('click', function() { hideModal(btn.dataset.closeModal); });
+});
+document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.classList.add('hidden'); });
 });
 
 // ── INIT ─────────────────────────────────────────────────────
 startListeners();
 switchPanel('general');
 renderCartSidebar();
-
-// Hide loader
-setTimeout(() => {
-  const loader = $('app-loader');
-  if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); }
+setTimeout(function() {
+  var loader = g('app-loader');
+  if (loader) { loader.style.opacity = '0'; setTimeout(function() { loader.remove(); }, 400); }
 }, 1200);
