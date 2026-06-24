@@ -364,26 +364,18 @@ function renderOrderProducts() {
   grid.innerHTML = inhand.map(p => {
     const inCart = cart[p.id]?.qty || 0;
     const outOfStock = p.stock <= 0;
-    return `
-    <div class="card">
-      ${p.imageUrl ? `<img class="card-img" src="${p.imageUrl}" alt="${p.name}" style="width:100%;height:220px;object-fit:cover;">` : '<div class="card-img-placeholder">🏷️</div>'}
-      <div class="card-body">
-        <div class="card-title">${p.name}</div>
-        <div class="card-price">${formatPrice(p.price)}</div>
-        <div class="card-desc">${p.description || ''}</div>
-        ${stockLabel(p.stock) ? `<div style="margin-bottom:0.8rem;">${stockLabel(p.stock)}</div>` : ""}
-        ${outOfStock
-          ? '<button class="btn btn-outline w-full" disabled>Out of Stock</button>'
-          : inCart > 0
-            ? `<div class="qty-control" style="justify-content:center;gap:1rem;">
-                <button class="qty-btn" onclick="changeCartQty('${p.id}',-1)">−</button>
-                <span class="qty-val">${inCart}</span>
-                <button class="qty-btn" onclick="changeCartQty('${p.id}',1)">+</button>
-               </div>`
-            : `<button class="btn btn-primary w-full" onclick="addToCart('${p.id}')">Add to Cart</button>`
-        }
-      </div>
-    </div>`;
+    const imgHtml = p.imageUrl ? '<img style="width:100%;height:220px;object-fit:cover;" src="' + p.imageUrl + '" alt="' + p.name + '">' : '<div class="card-img-placeholder">🏷️</div>';
+    const sLabel = stockLabel(p.stock);
+    const stockHtml = sLabel ? '<div style="margin-bottom:0.8rem;">' + sLabel + '</div>' : '';
+    let actionHtml = '';
+    if (outOfStock) {
+      actionHtml = '<button class="btn btn-outline w-full" disabled>Out of Stock</button>';
+    } else if (inCart > 0) {
+      actionHtml = '<div class="qty-control" style="justify-content:center;gap:1rem;"><button class="qty-btn" onclick="changeCartQty('' + p.id + '',-1)">−</button><span class="qty-val">' + inCart + '</span><button class="qty-btn" onclick="changeCartQty('' + p.id + '',1)">+</button></div>';
+    } else {
+      actionHtml = '<button class="btn btn-primary w-full" onclick="addToCart('' + p.id + '')">Add to Cart</button>';
+    }
+    return '<div class="card">' + imgHtml + '<div class="card-body"><div class="card-title">' + p.name + '</div><div class="card-price">' + formatPrice(p.price) + '</div><div class="card-desc">' + (p.description || '') + '</div>' + stockHtml + actionHtml + '</div></div>';
   }).join('');
 }
 
@@ -547,69 +539,29 @@ window.selectPayment = function(method) {
 
 function renderPaymentDetails(method) {
   const wrap = $('payment-details-wrap');
-  const messengerNote = `<div class="messenger-note" style="margin-top:1rem;">
-    📲 <strong>REMINDER:</strong> Kindly send a <strong>screenshot of your payment</strong> along with your <strong>confirmed order number</strong> to our Facebook Messenger.<br>
-    <span style="color:#ff6b6b;font-weight:700;">No screenshot + order number = not processed.</span>
-  </div>`;
+  const note = '<div class="messenger-note" style="margin-top:1rem;">📲 <strong>REMINDER:</strong> Kindly send a <strong>screenshot of your payment</strong> along with your <strong>confirmed order number</strong> to our Facebook Messenger.<br><span style="color:#ff6b6b;font-weight:700;">No screenshot + order number = not processed.</span></div>';
+
+  let html = '';
   if (method === 'GCash') {
     const qr = qrCodes['gcash'];
-    wrap.innerHTML = `
-      <div class="qr-display">
-        ${qr ? `<img src="${qr}" alt="GCash QR">` : '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">QR not yet uploaded</div>'}
-        <div class="qr-label">GCash</div>
-        <div class="qr-number">${GCASH_NUMBER}</div>
-      </div>`;
+    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="GCash QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">QR not yet uploaded</div>') + '<div class="qr-label">GCash</div><div class="qr-number">' + GCASH_NUMBER + '</div></div>';
   } else if (method === 'MariBank') {
     const qr = qrCodes['maribank'];
-    wrap.innerHTML = `<div class="qr-display">${qr ? `<img src="${qr}" alt="MariBank QR">` : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>'}<div class="qr-label">MariBank</div></div>`;
+    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="MariBank QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>') + '<div class="qr-label">MariBank</div></div>';
   } else if (method === 'Maya') {
     const qr = qrCodes['maya'];
-    wrap.innerHTML = `<div class="qr-display">${qr ? `<img src="${qr}" alt="Maya QR">` : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>'}<div class="qr-label">Maya</div></div>`;
+    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="Maya QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>') + '<div class="qr-label">Maya</div></div>';
   } else if (method === 'ChinaBank') {
     const qr = qrCodes['chinabank'];
-    wrap.innerHTML = `<div class="qr-display">${qr ? `<img src="${qr}" alt="ChinaBank QR">` : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>'}<div class="qr-label">ChinaBank</div></div>`;
+    html = '<div class="qr-display">' + (qr ? '<img src="' + qr + '" alt="ChinaBank QR" style="max-width:200px;margin:0 auto 0.8rem;display:block;border-radius:4px;">' : '<div style="color:var(--muted);font-size:0.85rem">QR not yet uploaded</div>') + '<div class="qr-label">ChinaBank</div></div>';
   } else if (method === 'COD/COP-LBC') {
-    wrap.innerHTML = `<div class="qr-display"><div class="qr-label">COD / COP via LBC</div><p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;">DP coordinate amount on our Facebook page.</p></div>`;
+    html = '<div class="qr-display"><div class="qr-label">COD / COP via LBC</div><p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;">DP coordinate amount on our Facebook page.</p></div>';
   } else if (method === 'Cash on Pickup') {
-    wrap.innerHTML = `<div class="qr-display"><div class="qr-label">Cash on Pickup</div><p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;">Pay when you pick up at: <strong style="color:var(--white)">${PICKUP_ADDRESS}</strong></p></div>`;
-  } else {
-    wrap.innerHTML = '';
-    return;
+    html = '<div class="qr-display"><div class="qr-label">Cash on Pickup</div><p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;">Pay when you pick up at: <strong style="color:var(--white)">' + PICKUP_ADDRESS + '</strong></p></div>';
   }
-  wrap.innerHTML += messengerNote;
+  wrap.innerHTML = html + (html ? note : '');
 }
 
-function renderOrderReview() {
-  const items = Object.values(cart);
-  const sub = getCartSubtotal();
-  const disc = getDiscount();
-  const total = sub - disc;
-
-  $('review-items').innerHTML = `
-    <table class="review-items-table">
-      <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
-      <tbody>
-        ${items.map(i => `
-          <tr>
-            <td>${i.product.name}</td>
-            <td>${i.qty}</td>
-            <td>${formatPrice(i.product.price * i.qty)}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-
-  $('review-subtotal').textContent = formatPrice(sub);
-  $('review-discount').textContent = disc > 0 ? `−${formatPrice(disc)}` : '—';
-  $('review-total').textContent = formatPrice(total);
-  $('review-shipping').textContent = selectedShipping || '—';
-  $('review-payment').textContent = selectedPayment || '—';
-
-  const fd = new FormData($('checkout-form'));
-  $('review-name').textContent = `${fd.get('profile_name') || ''} / ${fd.get('full_name') || ''}`;
-  $('review-contact').textContent = fd.get('contact') || '';
-  $('review-address').textContent = fd.get('address') || '';
-  $('review-note').textContent = fd.get('note') || '—';
-}
 
 // Checkout step navigation
 $('checkout-next-1').addEventListener('click', () => {
@@ -747,20 +699,10 @@ function renderAdminProducts() {
     grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No products yet</p></div>';
     return;
   }
-  grid.innerHTML = products.map(p => `
-    <div class="admin-product-card">
-      ${p.imageUrl ? `<img class="admin-product-card-img" src="${p.imageUrl}" alt="${p.name}" style="width:100%;height:160px;object-fit:cover;">` : '<div class="admin-product-card-img-placeholder">🏷️</div>'}
-      <div class="admin-product-card-body">
-        <div class="admin-product-card-name">${p.name}</div>
-        <div style="font-family:var(--font-mono);color:var(--red);font-size:0.95rem;">${formatPrice(p.price)}</div>
-        <div style="margin-top:0.3rem;">${stockLabel(p.stock)}</div>
-      </div>
-      <div class="admin-product-card-footer">
-        <button class="btn btn-ghost btn-sm" onclick="editProduct('${p.id}')">✏️ Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">🗑 Delete</button>
-      </div>
-    </div>
-  `).join('');
+  grid.innerHTML = products.map(p => {
+    const imgHtml = p.imageUrl ? '<img style="width:100%;height:160px;object-fit:cover;" src="' + p.imageUrl + '">' : '<div class="admin-product-card-img-placeholder">🏷️</div>';
+    return '<div class="admin-product-card">' + imgHtml + '<div class="admin-product-card-body"><div class="admin-product-card-name">' + p.name + '</div><div style="font-family:var(--font-mono);color:var(--accent);font-size:0.95rem;">' + formatPrice(p.price) + '</div><div style="margin-top:0.3rem;">' + stockLabel(p.stock) + '</div></div><div class="admin-product-card-footer"><button class="btn btn-ghost btn-sm" onclick="editProduct('' + p.id + '')">✏️ Edit</button><button class="btn btn-danger btn-sm" onclick="deleteProduct('' + p.id + '')">🗑 Delete</button></div></div>';
+  }).join('');
 }
 
 window.openAddProductModal = function() {
