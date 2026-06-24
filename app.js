@@ -133,6 +133,7 @@ document.querySelectorAll('.admin-nav-btn').forEach(function(btn) {
     document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
     btn.classList.add('active');
     g('admin-' + btn.dataset.section).classList.add('active');
+    if (btn.dataset.section === 'qr') renderAdminQRs();
   });
 });
 
@@ -174,7 +175,8 @@ function startListeners() {
     if (snap.exists()) { appearance = snap.data(); applyAppearance(); renderAdminAppearance(); }
   });
   onSnapshot(doc(db,'settings','qrcodes'), function(snap) {
-    if (snap.exists()) { qrCodes = snap.data(); renderAdminQRs(); }
+    if (snap.exists()) { qrCodes = snap.data(); }
+    renderAdminQRs();
   });
 }
 
@@ -307,12 +309,11 @@ function renderOrderProducts() {
     html += '<div class="product-list-item' + (outOfStock ? ' out-of-stock' : '') + '">';
     html += img;
     html += '<div class="product-list-info">';
-    html += '<div class="product-list-name">' + p.name + '</div>';
+    html += '<div class="product-list-name">' + p.name + (sLabel ? ' <span style="margin-left:.4rem">' + sLabel + '</span>' : '') + '</div>';
+    html += '<div class="product-list-price">' + formatPrice(p.price) + '</div>';
     if (p.description) html += '<div class="product-list-desc">' + p.description + '</div>';
-    if (sLabel) html += sLabel;
     html += '</div>';
     html += '<div class="product-list-right">';
-    html += '<div class="product-list-price">' + formatPrice(p.price) + '</div>';
     if (outOfStock) {
       html += '<span class="stock-out" style="font-size:.75rem;">OUT OF STOCK</span>';
     } else if (inCart > 0) {
