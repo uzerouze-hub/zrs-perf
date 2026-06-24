@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZRS Performance</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+
+<!-- ══ LOADER ══════════════════════════════════════════════ -->
+<div id="app-loader">
+  <div class="loader-logo"><span>Z</span>RS</div>
+  <div class="loader-bar"></div>
+  <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);letter-spacing:.15em">PERFORMANCE GEAR</div>
+</div>
+
+<!-- ══ TOAST ════════════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ══ HEADER ═══════════════════════════════════════════════ -->
+<header id="site-header">
+  <div class="header-logo"><span class="site-name">Z</span><span style="color:var(--white)">RS</span></div>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-panel="general">
+      <span class="tab-icon">🏠</span><span class="tab-label">General</span>
+    </button>
+    <button class="nav-tab" data-panel="order">
+      <span class="tab-icon">🛒</span><span class="tab-label">Order</span>
+      <span id="cart-item-count" style="margin-left:4px;background:var(--red);color:var(--white);font-size:0.7rem;padding:1px 5px;border-radius:10px;font-family:var(--font-mono);"></span>
+    </button>
+    <button class="nav-tab" data-panel="admin">
+      <span class="tab-icon">⚙️</span><span class="tab-label">Admin</span>
+    </button>
+  </nav>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     GENERAL PANEL
+═══════════════════════════════════════════════════════════ -->
+<div id="panel-general" class="panel active">
+
+  <!-- Hero -->
+  <div class="panel-hero">
+    <div class="panel-hero-eyebrow">ZRS // PERFORMANCE GEAR</div>
+    <h1 id="general-hero-text">BUILT FOR THE TRACK.<br>MADE FOR THE STREETS.</h1>
+    <p id="general-hero-sub">Premium performance wear and gear — pre-order now, ride in style.</p>
+  </div>
+
+  <div class="container">
+
+    <!-- PRE-ORDER SECTION -->
+    <div class="section">
+      <div class="section-header">
+        <div>
+          <div class="section-eyebrow">// INCOMING</div>
+          <h2>Pre-Orders</h2>
+        </div>
+      </div>
+      <div id="preorder-grid" class="products-grid">
+        <div class="empty-state"><div class="empty-icon">📦</div><p>Loading...</p></div>
+      </div>
+    </div>
+
+    <div class="stripe-divider"></div>
+
+    <!-- ANNOUNCEMENTS -->
+    <div class="section">
+      <div class="section-header">
+        <div>
+          <div class="section-eyebrow">// UPDATES</div>
+          <h2>Announcements</h2>
+        </div>
+      </div>
+      <div id="posts-grid" class="posts-grid">
+        <div class="empty-state"><div class="empty-icon">📝</div><p>Loading...</p></div>
+      </div>
+    </div>
+
+    <div class="stripe-divider"></div>
+
+    <!-- CUSTOMER GALLERY -->
+    <div class="section">
+      <div class="section-header">
+        <div>
+          <div class="section-eyebrow">// COMMUNITY</div>
+          <h2>Customer Gallery</h2>
+        </div>
+      </div>
+      <div id="gallery-grid" class="gallery-grid">
+        <div class="empty-state"><div class="empty-icon">📸</div><p>Loading...</p></div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /panel-general -->
+
+<!-- ══════════════════════════════════════════════════════════
+     ORDER PANEL
+═══════════════════════════════════════════════════════════ -->
+<div id="panel-order" class="panel">
+
+  <div class="panel-hero">
+    <div class="panel-hero-eyebrow">// SHOP</div>
+    <h1>On-Hand Products</h1>
+    <p>Ships fast. Built hard. Add to cart and checkout below.</p>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <div class="order-layout">
+
+        <!-- Products -->
+        <div>
+          <div id="order-products-grid" class="products-grid">
+            <div class="empty-state"><div class="empty-icon">⏳</div><p>Loading products...</p></div>
+          </div>
+        </div>
+
+        <!-- Cart Sidebar -->
+        <div>
+          <div class="cart-sidebar" id="cart-sidebar">
+            <div class="empty-state" style="padding:2rem 1rem">
+              <div class="empty-icon">🛒</div>
+              <p>Cart is empty</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-order -->
+
+<!-- ══════════════════════════════════════════════════════════
+     ADMIN PANEL
+═══════════════════════════════════════════════════════════ -->
+<div id="panel-admin" class="panel">
+
+  <!-- Login Screen -->
+  <div id="admin-login-screen" class="admin-login">
+    <div class="admin-login-box">
+      <div class="admin-login-logo"><span>Z</span>RS</div>
+      <div class="admin-login-sub">ADMIN ACCESS</div>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <label class="form-label">Password <span class="req">*</span></label>
+          <input type="password" id="admin-password-input" class="form-input" placeholder="Enter admin password" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Login →</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Main -->
+  <div id="admin-main" class="hidden">
+    <div class="admin-layout">
+
+      <!-- Sidebar -->
+      <aside class="admin-sidebar">
+        <div class="admin-nav-label">Products</div>
+        <button class="admin-nav-btn active" data-section="products">
+          <span class="nav-icon">🏷️</span> On-Hand Products
+        </button>
+        <button class="admin-nav-btn" data-section="preorders">
+          <span class="nav-icon">📦</span> Pre-Orders
+        </button>
+
+        <div class="admin-nav-label">Orders</div>
+        <button class="admin-nav-btn" data-section="orders">
+          <span class="nav-icon">📋</span> Orders
+        </button>
+        <button class="admin-nav-btn" data-section="reservations">
+          <span class="nav-icon">🎯</span> Reservations
+        </button>
+
+        <div class="admin-nav-label">General</div>
+        <button class="admin-nav-btn" data-section="posts">
+          <span class="nav-icon">📝</span> Posts
+        </button>
+        <button class="admin-nav-btn" data-section="gallery">
+          <span class="nav-icon">📸</span> Gallery
+        </button>
+
+        <div class="admin-nav-label">Settings</div>
+        <button class="admin-nav-btn" data-section="vouchers">
+          <span class="nav-icon">🎟️</span> Vouchers
+        </button>
+        <button class="admin-nav-btn" data-section="qr">
+          <span class="nav-icon">📱</span> Payment QRs
+        </button>
+        <button class="admin-nav-btn" data-section="appearance">
+          <span class="nav-icon">🎨</span> Appearance
+        </button>
+
+        <div style="padding:1.5rem;">
+          <button id="admin-logout-btn" class="btn btn-outline w-full btn-sm">Logout</button>
+        </div>
+      </aside>
+
+      <!-- Content -->
+      <main class="admin-content">
+
+        <!-- ON-HAND PRODUCTS -->
+        <section id="admin-products" class="admin-section active">
+          <div class="admin-section-title">🏷️ On-Hand Products</div>
+          <button class="btn btn-primary mb-2" onclick="openAddProductModal()">+ Add Product</button>
+          <div id="admin-products-grid" class="admin-product-grid"></div>
+        </section>
+
+        <!-- PRE-ORDERS -->
+        <section id="admin-preorders" class="admin-section">
+          <div class="admin-section-title">📦 Pre-Order Items</div>
+          <button class="btn btn-primary mb-2" onclick="openAddPreorderModal()">+ Add Pre-Order</button>
+          <div id="admin-preorders-grid" class="admin-product-grid"></div>
+        </section>
+
+        <!-- ORDERS -->
+        <section id="admin-orders" class="admin-section">
+          <div class="admin-section-title">📋 Orders</div>
+          <div id="admin-orders-list"></div>
+        </section>
+
+        <!-- RESERVATIONS -->
+        <section id="admin-reservations" class="admin-section">
+          <div class="admin-section-title">🎯 Pre-Order Reservations</div>
+          <div id="admin-reservations-list"></div>
+        </section>
+
+        <!-- POSTS -->
+        <section id="admin-posts" class="admin-section">
+          <div class="admin-section-title">📝 Announcements</div>
+          <button class="btn btn-primary mb-2" onclick="openAddPostModal()">+ New Post</button>
+          <div id="admin-posts-list"></div>
+        </section>
+
+        <!-- GALLERY -->
+        <section id="admin-gallery" class="admin-section">
+          <div class="admin-section-title">📸 Customer Gallery</div>
+          <div style="background:var(--dark2);border:1px solid var(--gray);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem;">
+            <form id="gallery-upload-form" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+              <div class="form-group" style="flex:1;min-width:200px;margin:0;">
+                <label class="form-label">Photo</label>
+                <input type="file" id="gallery-file-input" class="form-input" accept="image/*" required>
+              </div>
+              <div class="form-group" style="flex:2;min-width:200px;margin:0;">
+                <label class="form-label">Caption (optional)</label>
+                <input type="text" id="gallery-caption-input" class="form-input" placeholder="Customer caption...">
+              </div>
+              <button type="submit" id="gallery-upload-btn" class="btn btn-primary">Upload Photo</button>
+            </form>
+          </div>
+          <div id="admin-gallery-grid" class="gallery-grid"></div>
+        </section>
+
+        <!-- VOUCHERS -->
+        <section id="admin-vouchers" class="admin-section">
+          <div class="admin-section-title">🎟️ Vouchers</div>
+          <div style="background:var(--dark2);border:1px solid var(--gray);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem;">
+            <h4 style="font-family:var(--font-display);font-size:1rem;font-weight:700;text-transform:uppercase;margin-bottom:1rem;">Add Voucher</h4>
+            <form id="voucher-add-form" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+              <div class="form-group" style="flex:1;min-width:120px;margin:0;">
+                <label class="form-label">Code</label>
+                <input type="text" id="voucher-code-input" class="form-input" placeholder="e.g. RACE10" required>
+              </div>
+              <div class="form-group" style="flex:1;min-width:120px;margin:0;">
+                <label class="form-label">Type</label>
+                <select id="voucher-type-select" class="form-select">
+                  <option value="fixed">Fixed (₱)</option>
+                  <option value="percent">Percentage (%)</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1;min-width:100px;margin:0;">
+                <label class="form-label">Value</label>
+                <input type="number" id="voucher-value-input" class="form-input" placeholder="e.g. 100" min="1" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Add Voucher</button>
+            </form>
+          </div>
+          <div id="admin-vouchers-list"></div>
+        </section>
+
+        <!-- PAYMENT QRs -->
+        <section id="admin-qr" class="admin-section">
+          <div class="admin-section-title">📱 Payment QR Codes</div>
+          <p style="color:var(--muted);margin-bottom:1.5rem;font-size:0.9rem;">Upload QR codes for each payment method. These will show automatically during checkout.</p>
+          <div id="admin-qr-grid" class="qr-admin-grid"></div>
+        </section>
+
+        <!-- APPEARANCE -->
+        <section id="admin-appearance" class="admin-section">
+          <div class="admin-section-title">🎨 Appearance</div>
+          <form id="appearance-form">
+            <div class="appearance-section-card">
+              <h4>Site Identity</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Site Name</label>
+                  <input type="text" id="appear-site-name" class="form-input" placeholder="ZRS">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Accent Color</label>
+                  <input type="color" id="appear-accent" class="form-input" style="height:46px;padding:4px;">
+                </div>
+              </div>
+            </div>
+            <div class="appearance-section-card">
+              <h4>General Panel Hero</h4>
+              <div class="form-group">
+                <label class="form-label">Headline</label>
+                <input type="text" id="appear-hero-text" class="form-input" placeholder="BUILT FOR THE TRACK.">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Subheadline</label>
+                <input type="text" id="appear-hero-sub" class="form-input" placeholder="Premium performance wear...">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Appearance</button>
+          </form>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+</div><!-- /panel-admin -->
+
+<!-- ══════════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════════ -->
+
+<!-- RESERVE MODAL -->
+<div id="reserve-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Reserve Item</div>
+      <button class="modal-close" data-close-modal="reserve-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(232,0,29,0.08);border:1px solid var(--red);border-radius:var(--radius);padding:1rem;margin-bottom:1.5rem;">
+        <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:800;text-transform:uppercase;" id="reserve-product-name"></div>
+        <div style="font-family:var(--font-mono);color:var(--red);" id="reserve-product-price"></div>
+      </div>
+      <form id="reserve-form">
+        <div class="form-group">
+          <label class="form-label">Full Name <span class="req">*</span></label>
+          <input type="text" id="reserve-name" class="form-input" placeholder="Your full name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contact Number <span class="req">*</span></label>
+          <input type="text" id="reserve-contact" class="form-input" placeholder="09XX XXX XXXX" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Facebook Profile Link <span class="req">*</span></label>
+          <input type="url" id="reserve-fb" class="form-input" placeholder="https://facebook.com/..." required>
+        </div>
+        <button type="submit" id="reserve-submit-btn" class="btn btn-primary w-full">Reserve</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- POST VIEW MODAL -->
+<div id="post-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-header">
+      <div class="modal-title" id="post-modal-title"></div>
+      <button class="modal-close" data-close-modal="post-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="post-modal-img"></div>
+      <div style="font-family:var(--font-mono);font-size:0.75rem;color:var(--red);letter-spacing:.1em;margin-bottom:.8rem;" id="post-modal-date"></div>
+      <div class="blog-post-content" id="post-modal-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div id="checkout-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-header">
+      <div class="modal-title">Checkout</div>
+      <button class="modal-close" data-close-modal="checkout-modal">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Steps -->
+      <div class="checkout-steps">
+        <button class="step-tab active" data-step="1">1. Shipping</button>
+        <button class="step-tab" data-step="2">2. Details & Payment</button>
+        <button class="step-tab" data-step="3">3. Review</button>
+      </div>
+
+      <!-- STEP 1: Shipping -->
+      <div class="checkout-step active" id="checkout-step-1">
+        <div class="form-group">
+          <label class="form-label">Shipping Method <span class="req">*</span></label>
+          <div class="shipping-options">
+            <div class="shipping-option" data-ship="LBC" onclick="selectShipping('LBC')">
+              <div class="ship-name">🚚 LBC</div>
+            </div>
+            <div class="shipping-option" data-ship="J&T Express" onclick="selectShipping('J&T Express')">
+              <div class="ship-name">📦 J&T Express</div>
+            </div>
+            <div class="shipping-option" data-ship="Lalamove" onclick="selectShipping('Lalamove')">
+              <div class="ship-name">🛵 Lalamove</div>
+            </div>
+            <div class="shipping-option" data-ship="Pickup" onclick="selectShipping('Pickup')">
+              <div class="ship-name">🏪 Pickup</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lalamove form embed -->
+        <div id="lalamove-embed-wrap" class="lalamove-embed-wrap hidden">
+          <p style="padding:0.8rem 1rem;font-size:0.82rem;color:var(--muted);background:var(--dark3);">📝 Please fill out the Lalamove form below to schedule your delivery:</p>
+          <iframe src="https://delivery.lalamove.com/forms/PH5dd68764ef7b4c99878bbd860ce34476" title="Lalamove Delivery Form" loading="lazy"></iframe>
+        </div>
+
+        <!-- Pickup address -->
+        <div id="pickup-address-show" class="hidden" style="background:var(--dark3);border:1px solid var(--gray);border-radius:var(--radius);padding:1rem;margin-top:0.8rem;">
+          <div style="font-family:var(--font-display);font-size:0.85rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;">Pickup Address</div>
+          <div style="font-size:0.95rem;color:var(--white);">📍 Uze00, Quintos St. Sampaloc Manila</div>
+        </div>
+
+        <div style="margin-top:1.5rem;display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary" id="checkout-next-1">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Details & Payment -->
+      <div class="checkout-step" id="checkout-step-2">
+        <form id="checkout-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Profile Name <span class="req">*</span></label>
+              <input type="text" name="profile_name" class="form-input" placeholder="Facebook / Messenger name" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Full Name <span class="req">*</span></label>
+              <input type="text" name="full_name" class="form-input" placeholder="Legal full name" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Contact Number <span class="req">*</span></label>
+              <input type="text" name="contact" class="form-input" placeholder="09XX XXX XXXX" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Facebook Link <span style="color:var(--muted);font-size:0.78rem;">(optional)</span></label>
+              <input type="url" name="fb_link" class="form-input" placeholder="https://facebook.com/...">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Complete Address <span class="req">*</span></label>
+            <textarea name="address" class="form-textarea" placeholder="Unit/House No., Street, Barangay, City, Province, ZIP" required style="min-height:70px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Order Note <span style="color:var(--muted);font-size:0.78rem;">(optional)</span></label>
+            <textarea name="note" class="form-textarea" placeholder="Size, color preference, special instructions..." style="min-height:60px;"></textarea>
+          </div>
+        </form>
+
+        <!-- Voucher -->
+        <div class="form-group">
+          <label class="form-label">Voucher Code</label>
+          <div class="voucher-row">
+            <input type="text" id="voucher-input" class="form-input" placeholder="Enter code (optional)">
+            <button class="btn btn-ghost" id="apply-voucher-btn">Apply</button>
+          </div>
+          <div id="voucher-feedback"></div>
+        </div>
+
+        <!-- Payment -->
+        <div class="form-group">
+          <label class="form-label">Payment Method <span class="req">*</span></label>
+          <div class="payment-options">
+            <div class="payment-option" data-pay="GCash" onclick="selectPayment('GCash')">
+              <div class="pay-icon">💚</div>
+              <div class="pay-name">GCash</div>
+            </div>
+            <div class="payment-option" data-pay="MariBank" onclick="selectPayment('MariBank')">
+              <div class="pay-icon">🏦</div>
+              <div class="pay-name">MariBank</div>
+            </div>
+            <div class="payment-option" data-pay="Maya" onclick="selectPayment('Maya')">
+              <div class="pay-icon">💙</div>
+              <div class="pay-name">Maya</div>
+            </div>
+            <div class="payment-option" data-pay="ChinaBank" onclick="selectPayment('ChinaBank')">
+              <div class="pay-icon">🏧</div>
+              <div class="pay-name">ChinaBank</div>
+            </div>
+            <div class="payment-option" data-pay="COD/COP-LBC" onclick="selectPayment('COD/COP-LBC')">
+              <div class="pay-icon">📬</div>
+              <div class="pay-name">COD/COP LBC</div>
+            </div>
+            <div class="payment-option" data-pay="Cash on Pickup" onclick="selectPayment('Cash on Pickup')">
+              <div class="pay-icon">💵</div>
+              <div class="pay-name">Cash on Pickup</div>
+            </div>
+          </div>
+          <div id="payment-details-wrap"></div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+          <button class="btn btn-outline" id="checkout-back-2">← Back</button>
+          <button class="btn btn-primary" id="checkout-next-2">Review Order →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Review -->
+      <div class="checkout-step" id="checkout-step-3">
+        <div class="review-section">
+          <div class="review-label">Customer</div>
+          <div class="review-value" id="review-name"></div>
+        </div>
+        <div class="form-row">
+          <div class="review-section">
+            <div class="review-label">Contact</div>
+            <div class="review-value" id="review-contact"></div>
+          </div>
+          <div class="review-section">
+            <div class="review-label">Shipping</div>
+            <div class="review-value" id="review-shipping"></div>
+          </div>
+        </div>
+        <div class="review-section">
+          <div class="review-label">Address</div>
+          <div class="review-value" id="review-address"></div>
+        </div>
+        <div class="review-section">
+          <div class="review-label">Order Note</div>
+          <div class="review-value" id="review-note"></div>
+        </div>
+        <hr class="review-divider">
+        <div id="review-items"></div>
+        <hr class="review-divider">
+        <div class="cart-total-row"><span>Subtotal</span><span id="review-subtotal"></span></div>
+        <div class="cart-total-row"><span>Voucher Discount</span><span id="review-discount"></span></div>
+        <div class="cart-total-row" style="font-weight:700;color:var(--white);font-size:1rem;"><span>Total</span><span id="review-total" style="color:var(--red);font-family:var(--font-mono);"></span></div>
+        <div class="cart-total-row"><span>Payment</span><span id="review-payment"></span></div>
+
+        <div class="shipping-note" style="margin-top:1.5rem;">
+          ⚠️ <strong>The total shown does not include the shipping fee.</strong> Final amount with SF and payment confirmation will be discussed via DM on our Facebook page.
+        </div>
+
+        <div class="messenger-note">
+          📲 <strong>IMPORTANT:</strong> After placing your order, please send your <strong>payment screenshot</strong> and <strong>confirmed order</strong> to us on <strong>Facebook Messenger</strong> to complete your transaction.
+        </div>
+
+        <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+          <button class="btn btn-outline" id="checkout-back-3">← Back</button>
+          <button class="btn btn-primary btn-lg" id="place-order-btn">✔ Place Order</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ORDER SUCCESS MODAL -->
+<div id="order-success-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-body">
+      <div class="order-success">
+        <div class="success-icon">✅</div>
+        <h2>Order Placed!</h2>
+        <div style="font-family:var(--font-mono);color:var(--red);font-size:0.9rem;margin:0.5rem 0 1rem;" id="order-success-id"></div>
+        <p>Your order has been received. Please send your <strong style="color:var(--white)">payment screenshot</strong> and <strong style="color:var(--white)">order confirmation</strong> to us on <strong style="color:var(--red)">Facebook Messenger</strong>.</p>
+        <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:0.8rem;">
+          <button class="btn btn-primary" onclick="hideModal('order-success-modal')">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL (Admin) -->
+<div id="product-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="product-modal-title">Add Product</div>
+      <button class="modal-close" data-close-modal="product-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="product-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Product Name <span class="req">*</span></label>
+            <input type="text" id="product-name" class="form-input" placeholder="e.g. Racing Gloves Pro" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price (₱) <span class="req">*</span></label>
+            <input type="number" id="product-price" class="form-input" placeholder="0.00" min="0" step="0.01" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock Count <span class="req">*</span></label>
+          <input type="number" id="product-stock" class="form-input" placeholder="0" min="0" required>
+          <div class="form-hint">Shows "LOW STOCK" when ≤2 qty. Customers cannot order beyond available stock.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="product-desc" class="form-textarea" placeholder="Product details, specs, sizing..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Product Photo</label>
+          <input type="file" id="product-img-file" class="form-input" accept="image/*">
+          <div id="product-img-preview"></div>
+        </div>
+        <button type="submit" id="product-save-btn" class="btn btn-primary w-full">Save Product</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- PRE-ORDER MODAL (Admin) -->
+<div id="preorder-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="preorder-modal-title">Add Pre-Order</div>
+      <button class="modal-close" data-close-modal="preorder-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="preorder-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Item Name <span class="req">*</span></label>
+            <input type="text" id="preorder-name" class="form-input" placeholder="e.g. Carbon Helmet V2" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price (₱) <span class="req">*</span></label>
+            <input type="number" id="preorder-price" class="form-input" placeholder="0.00" min="0" step="0.01" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="preorder-desc" class="form-textarea" placeholder="ETA, specs, details..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Photo</label>
+          <input type="file" id="preorder-img-file" class="form-input" accept="image/*">
+          <div id="preorder-img-preview"></div>
+        </div>
+        <button type="submit" id="preorder-save-btn" class="btn btn-primary w-full">Save</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- POST FORM MODAL (Admin) -->
+<div id="post-form-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="post-form-modal-title">New Post</div>
+      <button class="modal-close" data-close-modal="post-form-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="post-form">
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input type="text" id="post-title-input" class="form-input" placeholder="Announcement title..." required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content <span class="req">*</span></label>
+          <textarea id="post-content-input" class="form-textarea" style="min-height:160px;" placeholder="Write your announcement here..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Photo (optional)</label>
+          <input type="file" id="post-img-file" class="form-input" accept="image/*">
+          <div id="post-img-preview"></div>
+        </div>
+        <button type="submit" id="post-save-btn" class="btn btn-primary w-full">Save Post</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK + App -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
