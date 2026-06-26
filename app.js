@@ -69,18 +69,15 @@ function showModal(id) { g(id).classList.remove('hidden'); }
 function hideModal(id) { g(id).classList.add('hidden'); }
 
 async function uploadToImgBB(file) {
-  const base64 = await new Promise(function(resolve, reject) {
-    const reader = new FileReader();
-    reader.onload = function() { resolve(reader.result.split(',')[1]); };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
   const fd = new FormData();
-  fd.append('image', base64);
+  fd.append('image', file);
   const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, {method:'POST', body:fd});
   const data = await res.json();
-  if (data.success) return data.data.display_url || data.data.url;
-  throw new Error('Image upload failed');
+  if (data.success) {
+    // Use url (direct link) — most compatible across all devices/browsers
+    return data.data.url;
+  }
+  throw new Error('Image upload failed: ' + JSON.stringify(data.error));
 }
 
 function stockLabel(stock) {
