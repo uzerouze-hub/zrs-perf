@@ -20,7 +20,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const IMGBB_KEY = "d211e3c978e38683b377b28c7a8cd5e4";
+const CLOUDINARY_CLOUD = "dhtrmxwkk";
+const CLOUDINARY_PRESET = "uv1gzi50";
 const WEB3FORMS_KEY = "31979fb4-863b-4127-a137-088a357fd5e6";
 const ADMIN_PASS = "pauze360";
 const ORDER_EMAIL = "uzerouze@gmail.com";
@@ -70,13 +71,11 @@ function hideModal(id) { g(id).classList.add('hidden'); }
 
 async function uploadToImgBB(file) {
   const fd = new FormData();
-  fd.append('image', file);
-  const res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_KEY, {method:'POST', body:fd});
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', {method:'POST', body:fd});
   const data = await res.json();
-  if (data.success) {
-    // Use url (direct link) — most compatible across all devices/browsers
-    return data.data.url;
-  }
+  if (data.secure_url) return data.secure_url;
   throw new Error('Image upload failed: ' + JSON.stringify(data.error));
 }
 
