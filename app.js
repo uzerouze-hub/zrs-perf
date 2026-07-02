@@ -29,6 +29,7 @@ const PICKUP_ADDRESS = "Uze00, Quintos St. Sampaloc Manila";
 const GCASH_NUMBER = "0927 968 1135 UZE Ramos";
 
 let cart = {};
+let bundles = [];
 let products = [];
 let preorders = [];
 let vouchers = [];
@@ -170,6 +171,12 @@ function startListeners() {
   onSnapshot(doc(db,'settings','appearance'), function(snap) {
     if (snap.exists()) { appearance = snap.data(); applyAppearance(); renderAdminAppearance(); }
   });
+  onSnapshot(query(collection(db,'bundles'), orderBy('createdAt','desc')), function(snap) {
+    bundles = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+    renderAdminBundles();
+    renderCartSidebar();
+  });
+
   onSnapshot(doc(db,'settings','qrcodes'), function(snap) {
     if (snap.exists()) { qrCodes = snap.data(); }
     renderAdminQRs();
@@ -355,6 +362,33 @@ function getDiscount() {
   return 0;
 }
 
+function getBundleDiscount() {
+  if (!bundles.length) return { total: 0, breakdown: [] };
+  var total = 0;
+  var breakdown = [];
+  bundles.forEach(function(bundle) {
+    if (!bundle.active || !bundle.items || bundle.items.length < 2) return;
+    // Check if ALL required items are in cart
+    var allPresent = bundle.items.every(function(bi) {
+      return cart[bi.productId] && cart[bi.productId].qty >= 1;
+    });
+    if (!allPresent) return;
+    // Calculate discount
+    var bundleTotal = 0;
+    var bundleLines = [];
+    bundle.items.forEach(function(bi) {
+      var cartItem = cart[bi.productId];
+      if (!cartItem) return;
+      var disc = bi.discount * cartItem.qty;
+      bundleTotal += disc;
+      bundleLines.push(cartItem.product.name + ' ×' + cartItem.qty + ' (−₱' + bi.discount + ' each)');
+    });
+    total += bundleTotal;
+    breakdown.push({ name: bundle.name, discount: bundleTotal, lines: bundleLines });
+  });
+  return { total: total, breakdown: breakdown };
+}
+
 function renderCartSidebar() {
   var sidebar = g('cart-sidebar');
   var items = Object.values(cart);
@@ -381,8 +415,15 @@ function renderCartSidebar() {
   });
   html += '<div style="margin-top:1rem;">';
   html += '<div class="cart-total-row"><span>Subtotal</span><span>' + formatPrice(subtotal) + '</span></div>';
-  if (discount > 0) html += '<div class="cart-total-row" style="color:var(--green)"><span>Discount</span><span>−' + formatPrice(discount) + '</span></div>';
-  html += '<div class="cart-total-row grand"><span>Total</span><span class="amount">' + formatPrice(total) + '</span></div>';
+  if (discount > 0) html += '<div class="cart-total-row" style="color:var(--green)"><span>Voucher Discount</span><span>−' + formatPrice(discount) + '</span></div>';
+  var bd = getBundleDiscount();
+  if (bd.total > 0) {
+    bd.breakdown.forEach(function(b) {
+      html += '<div class="cart-total-row" style="color:var(--green)"><span>🎁 ' + b.name + '</span><span>−' + formatPrice(b.discount) + '</span></div>';
+    });
+  }
+  var grandTotal = total - bd.total;
+  html += '<div class="cart-total-row grand"><span>Total</span><span class="amount">' + formatPrice(grandTotal) + '</span></div>';
   html += '</div>';
   html += '<div class="shipping-note">⚠ Total does not include shipping fee. Final amount with SF and payment confirmation will be discussed via DM on our Facebook page.</div>';
   html += '<button class="btn btn-primary w-full mt-2" data-action="checkout">Proceed to Checkout →</button>';
@@ -469,9 +510,13 @@ function renderOrderReview() {
     rows += '<tr><td>' + i.product.name + '</td><td>' + i.qty + '</td><td>' + formatPrice(i.product.price * i.qty) + '</td></tr>';
   });
   g('review-items').innerHTML = '<table class="review-items-table"><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  var bDisc = getBundleDiscount();
+  var finalTotal = sub - disc - bDisc.total;
   g('review-subtotal').textContent = formatPrice(sub);
-  g('review-discount').textContent = disc > 0 ? '−' + formatPrice(disc) : '—';
-  g('review-total').textContent = formatPrice(total);
+  g('review-discount').textContent = disc > 0 ? '−' + formatPrice(disc) : (bDisc.total > 0 ? '—' : '—');
+  g('review-total').textContent = formatPrice(finalTotal);
+  var bundleDiscEl = g('review-bundle-discount');
+  if (bundleDiscEl) bundleDiscEl.textContent = bDisc.total > 0 ? '−' + formatPrice(bDisc.total) : '—';
   g('review-shipping').textContent = selectedShipping || '—';
   g('review-payment').textContent = selectedPayment || '—';
   var fd = new FormData(g('checkout-form'));
@@ -541,7 +586,8 @@ g('place-order-btn').addEventListener('click', async function() {
     });
     var sub = getCartSubtotal();
     var disc = getDiscount();
-    var total = sub - disc;
+    var bd = getBundleDiscount();
+    var total = sub - disc - bd.total;
     var orderId = 'ZRS-' + genId();
     var orderData = {
       orderId: orderId,
@@ -770,6 +816,77 @@ function renderAdminPosts() {
   list.innerHTML = html;
 }
 
+function renderAdminBundles() {
+  var list = g('admin-bundles-list');
+  if (!list) return;
+  if (!bundles.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎁</div><p>No bundles yet</p></div>';
+    return;
+  }
+  var html = '';
+  bundles.forEach(function(b) {
+    var isActive = b.active !== false;
+    var itemLines = b.items ? b.items.map(function(bi) {
+      var prod = products.find(function(p) { return p.id === bi.productId; });
+      return '<div style="font-size:.82rem;color:var(--muted);">• ' + (prod ? prod.name : bi.productId) + ' — −₱' + bi.discount + '/item</div>';
+    }).join('') : '';
+    html += '<div class="order-card"><div class="order-card-header"><div>';
+    html += '<div style="font-weight:800;font-size:1rem;">🎁 ' + b.name + '</div>';
+    html += '<div style="font-size:.78rem;color:var(--muted);">' + (isActive ? '<span style="color:var(--green)">Active</span>' : '<span style="color:var(--muted)">Disabled</span>') + '</div>';
+    html += '</div><div class="flex gap-1">';
+    html += '<button class="btn btn-ghost btn-sm" data-action="editbundle" data-id="' + b.id + '">✏️ Edit</button>';
+    html += '<button class="btn btn-ghost btn-sm" data-action="togglebundle" data-id="' + b.id + '" data-active="' + isActive + '">' + (isActive ? 'Disable' : 'Enable') + '</button>';
+    html += '<button class="btn btn-danger btn-sm" data-action="delbundle" data-id="' + b.id + '">🗑</button>';
+    html += '</div></div>' + itemLines + '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function renderBundleProductSelects(items) {
+  var html = '';
+  for (var i = 0; i < 3; i++) {
+    var item = items && items[i] ? items[i] : null;
+    html += '<div class="bundle-item-row" style="display:grid;grid-template-columns:1fr 120px;gap:.5rem;margin-bottom:.8rem;">';
+    html += '<select class="form-select bundle-product-select" data-idx="' + i + '">';
+    html += '<option value="">— Select Product ' + (i+1) + ' —</option>';
+    products.forEach(function(p) {
+      var sel = item && item.productId === p.id ? 'selected' : '';
+      html += '<option value="' + p.id + '" ' + sel + '>' + p.name + '</option>';
+    });
+    html += '</select>';
+    html += '<input type="number" class="form-input bundle-discount-input" data-idx="' + i + '" placeholder="Discount ₱" min="0" value="' + (item ? item.discount : '') + '">';
+    html += '</div>';
+  }
+  return html;
+}
+
+window.openAddBundleModal = function() {
+  g('bundle-modal-title').textContent = 'New Bundle Deal';
+  g('bundle-name-input').value = '';
+  g('bundle-items-wrap').innerHTML = renderBundleProductSelects(null);
+  g('bundle-editing-id').value = '';
+  showModal('bundle-modal');
+};
+
+function editBundle(id) {
+  var b = bundles.find(function(x) { return x.id === id; });
+  if (!b) return;
+  g('bundle-modal-title').textContent = 'Edit Bundle Deal';
+  g('bundle-name-input').value = b.name;
+  g('bundle-items-wrap').innerHTML = renderBundleProductSelects(b.items);
+  g('bundle-editing-id').value = id;
+  showModal('bundle-modal');
+}
+
+function toggleBundle(id, currentActive) {
+  updateDoc(doc(db,'bundles',id), {active: currentActive === 'true' ? false : true});
+}
+
+function deleteBundle(id) {
+  if (!confirm('Delete this bundle?')) return;
+  deleteDoc(doc(db,'bundles',id)).then(function() { toast('Bundle deleted.','success'); });
+}
+
 function renderAdminQRs() {
   var methods = ['gcash','maribank','maya','chinabank'];
   var labels = {gcash:'GCash', maribank:'MariBank', maya:'Maya', chinabank:'ChinaBank'};
@@ -823,6 +940,9 @@ document.addEventListener('click', function(e) {
   else if (action === 'delgallery') deleteGalleryItem(id);
   else if (action === 'editpost') editPost(id);
   else if (action === 'delpost') deletePost(id);
+  else if (action === 'editbundle') editBundle(id);
+  else if (action === 'togglebundle') toggleBundle(id, btn.dataset.active);
+  else if (action === 'delbundle') deleteBundle(id);
 });
 
 function openLightbox(url) {
@@ -1055,6 +1175,31 @@ g('post-img-file').addEventListener('change', function(e) {
 });
 
 // ── QR CODES ─────────────────────────────────────────────────
+g('bundle-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var name = g('bundle-name-input').value.trim();
+  if (!name) { toast('Enter a bundle name.','error'); return; }
+  var items = [];
+  document.querySelectorAll('.bundle-product-select').forEach(function(sel, i) {
+    var productId = sel.value;
+    var discInput = document.querySelector('.bundle-discount-input[data-idx="' + i + '"]');
+    var discount = discInput ? parseFloat(discInput.value) : 0;
+    if (productId && discount > 0) items.push({productId: productId, discount: discount});
+  });
+  if (items.length < 2) { toast('Select at least 2 products with discounts.','error'); return; }
+  var editId = g('bundle-editing-id').value;
+  try {
+    if (editId) {
+      await updateDoc(doc(db,'bundles',editId), {name:name, items:items});
+      toast('Bundle updated!','success');
+    } else {
+      await addDoc(collection(db,'bundles'), {name:name, items:items, active:true, createdAt:serverTimestamp()});
+      toast('Bundle created!','success');
+    }
+    hideModal('bundle-modal');
+  } catch(err) { toast('Failed to save bundle.','error'); console.error(err); }
+});
+
 async function uploadQR(method, input) {
   var file = input.files[0];
   if (!file) return;

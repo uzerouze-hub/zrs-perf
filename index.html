@@ -186,6 +186,9 @@
         <button class="admin-nav-btn" data-section="vouchers">
           <span class="nav-icon">🎟️</span> Vouchers
         </button>
+        <button class="admin-nav-btn" data-section="bundles">
+          <span class="nav-icon">🎁</span> Bundle Deals
+        </button>
         <button class="admin-nav-btn" data-section="qr">
           <span class="nav-icon">📱</span> Payment QRs
         </button>
@@ -288,6 +291,14 @@
             </form>
           </div>
           <div id="admin-vouchers-list"></div>
+        </section>
+
+        <!-- BUNDLE DEALS -->
+        <section id="admin-bundles" class="admin-section">
+          <div class="admin-section-title">🎁 Bundle Deals</div>
+          <p style="color:var(--muted);font-size:.9rem;margin-bottom:1.5rem;">Set automatic discounts when specific items are ordered together. Discount is applied per item × quantity.</p>
+          <button class="btn btn-primary mb-2" onclick="openAddBundleModal()">+ New Bundle</button>
+          <div id="admin-bundles-list"></div>
         </section>
 
         <!-- PAYMENT QRs -->
@@ -548,6 +559,7 @@
         <hr class="review-divider">
         <div class="cart-total-row"><span>Subtotal</span><span id="review-subtotal"></span></div>
         <div class="cart-total-row"><span>Voucher Discount</span><span id="review-discount"></span></div>
+        <div class="cart-total-row" style="color:var(--green)"><span>Bundle Discount</span><span id="review-bundle-discount">—</span></div>
         <div class="cart-total-row" style="font-weight:700;color:var(--white);font-size:1rem;"><span>Total</span><span id="review-total" style="color:var(--red);font-family:var(--font-mono);"></span></div>
         <div class="cart-total-row"><span>Payment</span><span id="review-payment"></span></div>
 
@@ -682,6 +694,31 @@
           <div id="post-img-preview"></div>
         </div>
         <button type="submit" id="post-save-btn" class="btn btn-primary w-full">Save Post</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- BUNDLE MODAL -->
+<div id="bundle-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="bundle-modal-title">New Bundle Deal</div>
+      <button class="modal-close" data-close-modal="bundle-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="bundle-form">
+        <input type="hidden" id="bundle-editing-id">
+        <div class="form-group">
+          <label class="form-label">Bundle Name <span class="req">*</span></label>
+          <input type="text" id="bundle-name-input" class="form-input" placeholder="e.g. Exhaust Bundle Deal">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Products + Discount per item <span class="req">*</span></label>
+          <div class="form-hint" style="margin-bottom:.8rem;">Select each product and set how much discount per piece when bundle is triggered.</div>
+          <div id="bundle-items-wrap"></div>
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Save Bundle</button>
       </form>
     </div>
   </div>
